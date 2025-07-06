@@ -30,8 +30,8 @@ A comprehensive nutrition tracking application built with React, TypeScript, and
 
 1. Clone the repository:
 ```bash
-git clone <your-repo-url>
-cd nourishtrack
+git clone https://github.com/adizoriginal/nourishtrack-clean.git
+cd nourishtrack-clean
 ```
 
 2. Install dependencies:
