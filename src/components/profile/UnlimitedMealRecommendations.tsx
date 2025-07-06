@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,25 +61,27 @@ export const UnlimitedMealRecommendations = () => {
 
     setIsGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-meals', {
-        body: { 
+      const { data, error } = await supabase.functions.invoke("generate-meals", {
+        body: {
           mealType: selectedMealType,
           count: 3,
-          userId: user.id // Pass user ID for personalization
-        }
+          userId: user.id,
+        },
       });
 
-      if (error) throw error;
+      if (error) {
+        throw new Error("Meal generation limit reached. Try again later or reach out to support on the contact page.");
+      }
 
       setGeneratedMeals(data.meals || []);
       setSavedMeals(new Set());
-      
+
       toast({
         title: "Personalized meals generated!",
         description: `Generated ${data.meals?.length || 0} ${selectedMealType} recommendations based on your nutrition goals`,
       });
     } catch (error: any) {
-      console.error('Error generating meals:', error);
+      console.error("Error generating meals:", error);
       toast({
         variant: "destructive",
         title: "Error generating meals",
@@ -111,14 +112,14 @@ export const UnlimitedMealRecommendations = () => {
         fats: meal.fats,
       });
 
-      setSavedMeals(prev => new Set([...prev, index]));
-      
+      setSavedMeals((prev) => new Set([...prev, index]));
+
       toast({
         title: "Meal plan saved!",
         description: `${meal.name} has been added to your saved meal plans`,
       });
     } catch (error) {
-      // Error handling is done in the hook
+      // handled in hook
     }
   };
 
@@ -139,11 +140,11 @@ export const UnlimitedMealRecommendations = () => {
         protein: meal.protein,
         carbs: meal.carbs,
         fat: meal.fats,
-        servingSize: "1 serving"
+        servingSize: "1 serving",
       };
 
       await addFood(meal.meal_type, foodItem, currentDate);
-      
+
       toast({
         title: "Added to Food Diary!",
         description: `${meal.name} has been added to your ${meal.meal_type} for today.`,
@@ -165,14 +166,15 @@ export const UnlimitedMealRecommendations = () => {
           AI Personalized Meal Recommendations
         </CardTitle>
         <CardDescription>
-          Meals tailored to your nutrition goals: {profile.calorieGoal} cal/day, {profile.proteinGoal}g protein, weight goal: {profile.weightGoal}
+          Meals tailored to your nutrition goals: {profile.calorieGoal} cal/day, {profile.proteinGoal}g protein,
+          weight goal: {profile.weightGoal}
           {profile.dietaryPreferences && profile.dietaryPreferences.length > 0 && (
             <div className="mt-2">
               <span className="text-sm text-muted-foreground">Dietary preferences: </span>
               <div className="flex flex-wrap gap-1 mt-1">
                 {profile.dietaryPreferences.map((pref) => (
                   <Badge key={pref} variant="secondary" className="text-xs">
-                    {pref.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    {pref.replace("-", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
                   </Badge>
                 ))}
               </div>
@@ -193,8 +195,8 @@ export const UnlimitedMealRecommendations = () => {
               <SelectItem value="snacks">Snacks</SelectItem>
             </SelectContent>
           </Select>
-          <Button 
-            onClick={generateMeals} 
+          <Button
+            onClick={generateMeals}
             disabled={isGenerating || !selectedMealType}
             className="flex items-center gap-2"
           >
@@ -223,7 +225,6 @@ export const UnlimitedMealRecommendations = () => {
                 <Card key={index} className="border-l-4 border-l-primary">
                   <CardContent className="pt-6">
                     <div className="space-y-4">
-                      {/* Header */}
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <h4 className="font-bold text-xl mb-2">{meal.name}</h4>
@@ -273,7 +274,6 @@ export const UnlimitedMealRecommendations = () => {
                         </div>
                       </div>
 
-                      {/* Nutrition Info with Target Comparison */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border">
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Calories</p>
@@ -305,7 +305,6 @@ export const UnlimitedMealRecommendations = () => {
                         </div>
                       </div>
 
-                      {/* Ingredients */}
                       {meal.ingredients && meal.ingredients.length > 0 && (
                         <div>
                           <h5 className="text-lg font-semibold mb-3 flex items-center">
@@ -313,7 +312,7 @@ export const UnlimitedMealRecommendations = () => {
                             Ingredients
                           </h5>
                           <ul className="space-y-2">
-                            {meal.ingredients.map((ingredient: string, ingredientIndex: number) => (
+                            {meal.ingredients.map((ingredient, ingredientIndex) => (
                               <li key={ingredientIndex} className="flex items-start">
                                 <span className="w-2 h-2 bg-primary rounded-full mt-2 mr-3 flex-shrink-0"></span>
                                 <span className="text-sm">{ingredient}</span>
@@ -323,12 +322,11 @@ export const UnlimitedMealRecommendations = () => {
                         </div>
                       )}
 
-                      {/* Instructions */}
                       {meal.instructions && meal.instructions.length > 0 && (
                         <div>
                           <h5 className="text-lg font-semibold mb-3">Cooking Instructions</h5>
                           <ol className="space-y-3">
-                            {meal.instructions.map((instruction: string, instructionIndex: number) => (
+                            {meal.instructions.map((instruction, instructionIndex) => (
                               <li key={instructionIndex} className="flex items-start">
                                 <span className="bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center text-sm font-medium mr-3 flex-shrink-0 mt-0.5">
                                   {instructionIndex + 1}
