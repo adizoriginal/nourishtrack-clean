@@ -20,14 +20,14 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// ✅ Moved outside App so it can access useAuth safely
+// ✅ ProtectedRoute with spinner
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { session, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen text-lg font-medium">
-        Restoring session...
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -100,6 +100,7 @@ const App = () => (
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
+  // Trigger rebuild for Vercel
 );
 
 export default App;
