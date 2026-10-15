@@ -35,7 +35,19 @@ interface UserProfile {
   fatGoal: number;
   dietaryPreferences: string[];
   units: UnitSystem;
+  /** Daily water goal in glasses */
+  waterGoal: number;
 }
+
+const WATER_GOAL_KEY = "nourishtrack:water-goal";
+const readStoredWaterGoal = (): number | null => {
+  try {
+    const n = Number(localStorage.getItem(WATER_GOAL_KEY));
+    return Number.isFinite(n) && n >= 1 && n <= 30 ? n : null;
+  } catch {
+    return null;
+  }
+};
 
 interface DailyMeals {
   [date: string]: {
@@ -102,6 +114,7 @@ const defaultProfile: UserProfile = {
   fatGoal: 65,
   dietaryPreferences: [],
   units: readStoredUnits() ?? guessUnits(),
+  waterGoal: readStoredWaterGoal() ?? 8,
 };
 
 const getTodayString = () => toLocalDateString();
@@ -191,6 +204,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             data.units === "metric" || data.units === "imperial"
               ? data.units
               : readStoredUnits() ?? guessUnits(),
+          waterGoal: data.water_goal ?? readStoredWaterGoal() ?? 8,
         });
       }
     } catch (error) {
@@ -625,6 +639,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const updatedProfile = { ...profile, ...newProfileData };
     
     storeUnits(updatedProfile.units);
+    try {
+      localStorage.setItem(WATER_GOAL_KEY, String(updatedProfile.waterGoal));
+    } catch {
+      /* ignore */
+    }
 
     try {
       const row: Record<string, unknown> = {
@@ -644,13 +663,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           fat_goal: updatedProfile.fatGoal,
           dietary_preferences: JSON.stringify(updatedProfile.dietaryPreferences || []),
           units: updatedProfile.units,
+          water_goal: updatedProfile.waterGoal,
       };
 
       // Work with databases that haven't had the units update yet:
       // drop the units column if it doesn't exist, and round weight if it's still whole numbers only.
       let { error } = await supabase.from('profiles').upsert(row as never);
-      for (let attempt = 0; error && attempt < 2; attempt++) {
-        if ('units' in row && (error.code === 'PGRST204' || /units/i.test(error.message))) {
+      for (let attempt = 0; error && attempt < 4; attempt++) {
+        // "Could not find the 'water_goal' column" etc.: drop that column and try again
+        const missing = error.code === 'PGRST204' ? error.message.match(/'([a-z_]+)' column/)?.[1] : undefined;
+        if (missing && missing in row) {
+          delete row[missing];
+        } else if ('units' in row && /units/i.test(error.message)) {
           delete row.units;
         } else if ((error.code === '22P02' || error.code === '22003') && typeof row.weight === 'number') {
           row.weight = Math.round(row.weight);

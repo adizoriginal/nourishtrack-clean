@@ -167,6 +167,7 @@ export type Database = {
           last_name: string | null
           protein_goal: number | null
           units: string | null
+          water_goal: number | null
           updated_at: string | null
           weight: number | null
           weight_goal: string | null
@@ -187,6 +188,7 @@ export type Database = {
           last_name?: string | null
           protein_goal?: number | null
           units?: string | null
+          water_goal?: number | null
           updated_at?: string | null
           weight?: number | null
           weight_goal?: string | null
@@ -207,6 +209,7 @@ export type Database = {
           last_name?: string | null
           protein_goal?: number | null
           units?: string | null
+          water_goal?: number | null
           updated_at?: string | null
           weight?: number | null
           weight_goal?: string | null

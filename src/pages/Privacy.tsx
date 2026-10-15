@@ -52,7 +52,8 @@ const Privacy = () => (
         <strong>Supabase</strong> stores your account and the data you enter, and handles sign-in.
       </li>
       <li>
-        <strong>Vercel</strong> hosts the website.
+        <strong>Vercel</strong> hosts the website and provides privacy-friendly visitor statistics (which pages are
+        visited, from what kind of device and roughly which country). It doesn't use cookies or identify you.
       </li>
       <li>
         <strong>Google</strong> handles "Continue with Google" sign-in, if you choose to use it.
@@ -60,6 +61,10 @@ const Privacy = () => (
       <li>
         <strong>USDA FoodData Central</strong> receives the words you type into food search, to return matching
         foods. It does not receive your name or account details.
+      </li>
+      <li>
+        <strong>Open Food Facts</strong> receives the barcode number when you scan or type one, to look up the
+        product. If you use the camera to scan, the image is processed on your device and never uploaded.
       </li>
       <li>
         <strong>Spoonacular</strong> receives your meal type, calorie and macro targets and dietary preferences
@@ -90,6 +95,9 @@ const Privacy = () => (
     <ul>
       <li>You can view and change your profile and goals at any time in the app.</li>
       <li>You can delete individual foods and saved meals in the app.</li>
+      <li>
+        You can delete your account and all its data yourself at any time in Profile → Delete account.
+      </li>
       <li>
         You can ask for a copy of your data, ask us to correct it, or ask us to delete your account by emailing{" "}
         <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> from the address on your account. We'll respond

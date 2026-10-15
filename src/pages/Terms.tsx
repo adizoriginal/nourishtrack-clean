@@ -55,7 +55,7 @@ const Terms = () => (
 
     <h2>Ending your account</h2>
     <p>
-      You can stop using NourishTrack at any time and ask us to delete your account by emailing{" "}
+      You can stop using NourishTrack at any time and delete your account in Profile, or ask us to by emailing{" "}
       <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>. We may suspend accounts that break these terms.
     </p>
 

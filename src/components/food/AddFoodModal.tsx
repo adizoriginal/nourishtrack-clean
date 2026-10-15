@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Search } from "lucide-react";
 import { FoodOption, scaleFood, searchFoods } from "@/lib/foodSearch";
+import { BarcodeLookupError, lookupBarcode } from "@/lib/barcode";
+import { BarcodeScanner } from "./BarcodeScanner";
 
 export interface NewFood {
   id: string;
@@ -45,6 +47,8 @@ export const AddFoodModal = ({ isOpen, onClose, onAddFood, mealType, recentFoods
   const [amount, setAmount] = useState("");
   const [quick, setQuick] = useState(emptyQuickAdd);
   const [isSaving, setIsSaving] = useState(false);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Reset everything each time the dialog opens
@@ -58,6 +62,7 @@ export const AddFoodModal = ({ isOpen, onClose, onAddFood, mealType, recentFoods
       setSelected(null);
       setAmount("");
       setQuick(emptyQuickAdd);
+      setScanError(null);
     }
     return () => abortRef.current?.abort();
   }, [isOpen]);
@@ -80,6 +85,26 @@ export const AddFoodModal = ({ isOpen, onClose, onAddFood, mealType, recentFoods
       setResults([]);
     } finally {
       if (abortRef.current === controller) setIsSearching(false);
+    }
+  };
+
+  // A scanned product shows up in the search list, already selected, ready to add
+  const handleBarcode = async (code: string) => {
+    setLookingUp(true);
+    setScanError(null);
+    try {
+      const product = await lookupBarcode(code);
+      setResults([product]);
+      setHasSearched(true);
+      setSearchError(null);
+      setQuery("");
+      setSelected(product);
+      setAmount(String(product.defaultAmount));
+      setTab("search");
+    } catch (err) {
+      setScanError(err instanceof BarcodeLookupError ? err.message : "Something went wrong looking up that barcode.");
+    } finally {
+      setLookingUp(false);
     }
   };
 
@@ -135,14 +160,19 @@ export const AddFoodModal = ({ isOpen, onClose, onAddFood, mealType, recentFoods
       <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add food to {mealType}</DialogTitle>
-          <DialogDescription>Search the food database, or quick-add your own food.</DialogDescription>
+          <DialogDescription>Search the food database, scan a barcode, or quick-add your own food.</DialogDescription>
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="search">Search</TabsTrigger>
+            <TabsTrigger value="scan">Scan</TabsTrigger>
             <TabsTrigger value="quick">Quick add</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="scan" className="space-y-3">
+            {tab === "scan" && <BarcodeScanner onCode={handleBarcode} busy={lookingUp} error={scanError} />}
+          </TabsContent>
 
           <TabsContent value="search" className="space-y-3">
             <form

@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Suspense } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppProvider, useAppContext } from "./contexts/AppContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -80,6 +81,8 @@ const App = () => (
             <div className="flex flex-col min-h-screen">
               <Header />
               <PageMeta />
+              {/* Anonymous page-view counts in the Vercel dashboard (no cookies) */}
+              <Analytics />
               <main className="flex-1">
                 <Suspense fallback={<PageLoading />}>
                 <Routes>

@@ -32,7 +32,7 @@ export const Meter = ({ value, goal, label, className, size = "sm" }: MeterProps
       )}
     >
       <div
-        className={cn("h-full rounded-full transition-[width] duration-500", over ? "bg-amber-500" : "bg-nourish-600")}
+        className={cn("h-full rounded-full transition-[width] duration-500", over ? "bg-amber-600" : "bg-nourish-600")}
         style={{ width: `${pct}%` }}
       />
     </div>

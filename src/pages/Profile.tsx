@@ -5,6 +5,7 @@ import { UnlimitedMealRecommendations } from "@/components/profile/UnlimitedMeal
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { DeleteAccount } from "@/components/profile/DeleteAccount";
 
 const Profile = () => {
   const { user } = useAuth();
@@ -26,7 +27,10 @@ const Profile = () => {
     <div className="container mx-auto px-4 py-8 space-y-8">
       <h1 className="text-3xl font-bold mb-8">Profile Settings</h1>
       <div className="grid gap-8 lg:grid-cols-[400px,1fr]">
-        <ProfileCard />
+        <div className="space-y-8">
+          <ProfileCard />
+          <DeleteAccount />
+        </div>
         <div className="space-y-8">
           <div>
             <h2 className="text-2xl font-semibold mb-4">Saved Meal Plans</h2>
