@@ -7,14 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, TrendingDown, TrendingUp } from "lucide-react";
+import { displayWeight, toKg, weightUnitLabel } from "@/lib/units";
 
 const Progress = () => {
   const { weightHistory, addWeightRecord, profile } = useAppContext();
   const [newWeight, setNewWeight] = useState<string>("");
 
+  const units = profile.units;
+  const unitLabel = weightUnitLabel(units);
+  const show = (kg: number) => displayWeight(kg, units).toFixed(1);
+
   const handleAddWeight = () => {
-    if (newWeight && !isNaN(parseFloat(newWeight))) {
-      addWeightRecord(parseFloat(newWeight));
+    const value = parseFloat(newWeight);
+    if (newWeight && !isNaN(value) && value > 0) {
+      // Stored in kg (full precision, so pounds read back exactly)
+      addWeightRecord(toKg(value, units));
       setNewWeight("");
     }
   };
@@ -43,7 +50,7 @@ const Progress = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {weightHistory.length > 0 ? `${startWeight.toFixed(1)} kg` : "Not logged"}
+              {weightHistory.length > 0 ? `${show(startWeight)} ${unitLabel}` : "Not logged"}
             </div>
             <div className="text-sm text-muted-foreground">
               {weightHistory.length > 0 ? weightHistory[0].date : "No data"}
@@ -57,7 +64,7 @@ const Progress = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {weightHistory.length > 0 ? `${currentWeight.toFixed(1)} kg` : "Not logged"}
+              {weightHistory.length > 0 ? `${show(currentWeight)} ${unitLabel}` : "Not logged"}
             </div>
             <div className="text-sm text-muted-foreground">
               {weightHistory.length > 0 ? weightHistory[weightHistory.length - 1].date : "No data"}
@@ -74,16 +81,16 @@ const Progress = () => {
               {weightHistory.length < 2 ? (
                 "Not enough data"
               ) : weightChange === 0 ? (
-                "0.0 kg"
+                `0.0 ${unitLabel}`
               ) : weightChange < 0 ? (
                 <>
                   <TrendingDown className="text-nourish-500 mr-1 h-5 w-5" />
-                  {Math.abs(weightChange).toFixed(1)} kg
+                  {show(Math.abs(weightChange))} {unitLabel}
                 </>
               ) : (
                 <>
                   <TrendingUp className="text-destructive mr-1 h-5 w-5" />
-                  {weightChange.toFixed(1)} kg
+                  +{show(weightChange)} {unitLabel}
                 </>
               )}
             </div>
@@ -95,7 +102,7 @@ const Progress = () => {
       </div>
       
       <div className="grid grid-cols-1 gap-6">
-        <WeightChart weightData={weightHistory} />
+        <WeightChart weightData={weightHistory} units={units} />
         
         <Card className="nourish-card">
           <CardHeader>
@@ -104,7 +111,7 @@ const Progress = () => {
           <CardContent>
             <div className="flex items-end gap-4">
               <div className="space-y-2 flex-1">
-                <Label htmlFor="weight">Weight (kg)</Label>
+                <Label htmlFor="weight">Weight ({unitLabel})</Label>
                 <Input
                   id="weight"
                   type="number"

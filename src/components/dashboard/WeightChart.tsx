@@ -9,6 +9,7 @@ import {
   CartesianGrid,
   Tooltip,
 } from "recharts";
+import { UnitSystem, displayWeight, weightUnitLabel } from "@/lib/units";
 
 interface WeightDataPoint {
   date: string;
@@ -17,9 +18,13 @@ interface WeightDataPoint {
 
 interface WeightChartProps {
   weightData: WeightDataPoint[];
+  units?: UnitSystem;
 }
 
-export const WeightChart = ({ weightData }: WeightChartProps) => {
+export const WeightChart = ({ weightData: weightDataKg, units = "metric" }: WeightChartProps) => {
+  // Data is stored in kg; show it in the user's units
+  const weightData = weightDataKg.map((d) => ({ ...d, weight: displayWeight(d.weight, units) }));
+  const unitLabel = weightUnitLabel(units);
   if (weightData.length === 0) {
     return (
       <Card className="nourish-card h-[350px]">
@@ -69,7 +74,7 @@ export const WeightChart = ({ weightData }: WeightChartProps) => {
               width={40}
             />
             <Tooltip
-              formatter={(value: number) => [`${value.toFixed(1)} kg`, "Weight"]}
+              formatter={(value: number) => [`${value.toFixed(1)} ${unitLabel}`, "Weight"]}
               labelFormatter={(label) => {
                 const date = new Date(label);
                 return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });

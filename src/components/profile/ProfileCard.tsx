@@ -10,6 +10,8 @@ import { useAppContext } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import { Calculator } from "lucide-react";
+import { UnitToggle } from "@/components/UnitToggle";
+import { UnitSystem, cmToFtIn, displayWeight, ftInToCm, toKg } from "@/lib/units";
 
 export const ProfileCard = () => {
   const { profile, updateProfile, isLoading } = useAppContext();
@@ -19,9 +21,43 @@ export const ProfileCard = () => {
   // Local state for form data
   const [formData, setFormData] = useState(profile);
 
+  // Height/weight are edited as text in the chosen units, then converted to cm/kg in formData
+  const [weightText, setWeightText] = useState("");
+  const [heightFt, setHeightFt] = useState("");
+  const [heightIn, setHeightIn] = useState("");
+
+  const syncUnitFields = (p: typeof profile, units: UnitSystem) => {
+    setWeightText(String(displayWeight(p.weight, units)));
+    const { ft, inch } = cmToFtIn(p.height);
+    setHeightFt(String(ft));
+    setHeightIn(String(inch));
+  };
+
   useEffect(() => {
     setFormData(profile);
+    syncUnitFields(profile, profile.units);
   }, [profile]);
+
+  const changeUnits = (units: UnitSystem) => {
+    setFormData(prev => ({ ...prev, units }));
+    syncUnitFields(formData, units);
+  };
+
+  const changeWeight = (text: string) => {
+    setWeightText(text);
+    const n = parseFloat(text);
+    if (Number.isFinite(n)) setFormData(prev => ({ ...prev, weight: Math.round(toKg(n, prev.units) * 100) / 100 }));
+  };
+
+  const changeHeightFtIn = (ftText: string, inText: string) => {
+    setHeightFt(ftText);
+    setHeightIn(inText);
+    const ft = parseFloat(ftText);
+    const inch = inText.trim() === "" ? 0 : parseFloat(inText);
+    if (Number.isFinite(ft) && Number.isFinite(inch)) {
+      setFormData(prev => ({ ...prev, height: Math.round(ftInToCm(ft, inch)) }));
+    }
+  };
 
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({
@@ -142,24 +178,52 @@ export const ProfileCard = () => {
               </div>
             </div>
             
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <Label>Units</Label>
+              <UnitToggle value={formData.units} onChange={changeUnits} />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
+              {formData.units === "metric" ? (
+                <div className="space-y-2">
+                  <Label htmlFor="height">Height (cm)</Label>
+                  <Input
+                    id="height"
+                    type="number"
+                    value={formData.height}
+                    onChange={(e) => handleInputChange('height', e.target.value)}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="height-ft">Height (ft / in)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="height-ft"
+                      aria-label="Height, feet"
+                      type="number"
+                      value={heightFt}
+                      onChange={(e) => changeHeightFtIn(e.target.value, heightIn)}
+                    />
+                    <Input
+                      id="height-in"
+                      aria-label="Height, inches"
+                      type="number"
+                      value={heightIn}
+                      onChange={(e) => changeHeightFtIn(heightFt, e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
-                <Label htmlFor="height">Height (cm)</Label>
-                <Input 
-                  id="height" 
-                  type="number" 
-                  value={formData.height}
-                  onChange={(e) => handleInputChange('height', e.target.value)}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="weight">Weight (kg)</Label>
-                <Input 
-                  id="weight" 
-                  type="number" 
-                  value={formData.weight}
-                  onChange={(e) => handleInputChange('weight', e.target.value)}
+                <Label htmlFor="weight">Weight ({formData.units === "metric" ? "kg" : "lb"})</Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  step="0.1"
+                  value={weightText}
+                  onChange={(e) => changeWeight(e.target.value)}
                 />
               </div>
             </div>

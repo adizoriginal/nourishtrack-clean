@@ -2,7 +2,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
-import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface MealSummary {
@@ -35,18 +34,15 @@ export const DailySummary = ({ meals, date }: DailySummaryProps) => {
   return (
     <Card className="nourish-card">
       <CardHeader>
-        <CardTitle className="flex justify-between items-center">
+        <CardTitle className="flex justify-between items-center text-lg">
           <span>
             Today's Meals
             <span className="block text-sm font-medium text-muted-foreground">
               {format(date, "MMMM d, yyyy")}
             </span>
           </span>
-          <Button asChild size="sm">
-            <Link to="/food-diary">
-              <Plus className="h-4 w-4 mr-1" />
-              Log food
-            </Link>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/food-diary">Open diary</Link>
           </Button>
         </CardTitle>
       </CardHeader>
@@ -57,7 +53,7 @@ export const DailySummary = ({ meals, date }: DailySummaryProps) => {
               <div className="flex justify-between items-center mb-2">
                 <h3 className="font-medium">{meal.label}</h3>
                 <span className="text-sm font-medium">
-                  {calculateTotalCalories(meal.items)} kcal
+                  {Math.round(calculateTotalCalories(meal.items))} kcal
                 </span>
               </div>
               
@@ -66,7 +62,7 @@ export const DailySummary = ({ meals, date }: DailySummaryProps) => {
                   {meal.items.map((item, index) => (
                     <li key={index} className="flex justify-between text-sm">
                       <span className="text-muted-foreground">{item.name}</span>
-                      <span>{item.calories} kcal</span>
+                      <span>{Math.round(item.calories)} kcal</span>
                     </li>
                   ))}
                 </ul>

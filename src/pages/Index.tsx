@@ -14,7 +14,7 @@ const features = [
   {
     icon: Utensils,
     title: "Log any meal in seconds",
-    text: "Search thousands of foods, or quick-add your own, including local dishes like jollof, egusi and akara. Foods you eat often are one tap away.",
+    text: "Search thousands of foods, or quick-add your own home-cooked dishes from any cuisine. Foods you eat often are one tap away.",
   },
   {
     icon: Target,
@@ -54,8 +54,8 @@ const faqs = [
     a: "We use the Mifflin-St Jeor equation, the formula dietitians most often use, to estimate how much energy your body uses from your age, sex, height and weight. We then adjust for your activity level and your goal. To lose weight, for example, we set your target about 500 kcal below what you burn, and never below a safe minimum.",
   },
   {
-    q: "Can I log Nigerian and other local foods?",
-    a: "Yes. Food search covers thousands of everyday foods like rice, plantain, beans and eggs. For home-cooked dishes such as jollof, egusi or amala, use Quick add to enter the name and calories. NourishTrack remembers them, so next time they're a single tap.",
+    q: "What if a food isn't in the search?",
+    a: "Food search covers thousands of everyday foods, from rice and eggs to fruit and vegetables. For home-cooked or regional dishes, use Quick add to enter the name and calories. NourishTrack remembers them, so next time they're a single tap.",
   },
   {
     q: "Who can see my food diary?",
@@ -139,7 +139,7 @@ const Index = () => {
               />
               <PhoneFrame
                 src="/preview-diary.webp"
-                alt="NourishTrack food diary with akara, pap and jollof rice logged"
+                alt="NourishTrack food diary with oatmeal, Greek yogurt and jollof rice logged"
                 className="absolute left-0 top-12 w-[58%] -rotate-2"
               />
             </div>

@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useAppContext } from "@/contexts/AppContext";
 import { cn } from "@/lib/utils";
+import { UnitToggle } from "@/components/UnitToggle";
+import { UnitSystem, cmToFtIn, displayWeight, ftInToCm, toKg } from "@/lib/units";
 import {
   ACTIVITY_LEVELS,
   ActivityLevel,
@@ -60,8 +62,12 @@ const Onboarding = () => {
   const [name, setName] = useState(profile.name !== "User" ? profile.name : "");
   const [sex, setSex] = useState<Sex | "">(prefill ? (profile.gender as Sex) : "");
   const [age, setAge] = useState(prefill ? String(profile.age) : "");
+  const [units, setUnits] = useState<UnitSystem>(profile.units);
+  // Height/weight are typed in the chosen units and converted to cm/kg for the maths and saving
   const [height, setHeight] = useState(prefill ? String(profile.height) : "");
-  const [weight, setWeight] = useState(prefill ? String(profile.weight) : "");
+  const [heightFt, setHeightFt] = useState(prefill ? String(cmToFtIn(profile.height).ft) : "");
+  const [heightIn, setHeightIn] = useState(prefill ? String(cmToFtIn(profile.height).inch) : "");
+  const [weight, setWeight] = useState(prefill ? String(displayWeight(profile.weight, profile.units)) : "");
   const [activity, setActivity] = useState<ActivityLevel | "">(
     prefill ? (profile.activityLevel as ActivityLevel) : ""
   );
@@ -73,18 +79,48 @@ const Onboarding = () => {
   const inRange = (v: number, r: { min: number; max: number }) => Number.isFinite(v) && v >= r.min && v <= r.max;
 
   const ageN = num(age);
-  const heightN = num(height);
-  const weightN = num(weight);
+  const heightN =
+    units === "metric"
+      ? num(height)
+      : heightFt.trim() === ""
+        ? NaN
+        : ftInToCm(num(heightFt), heightIn.trim() === "" ? 0 : num(heightIn));
+  const weightN = weight.trim() === "" ? NaN : toKg(num(weight), units);
+  const heightEntered = units === "metric" ? !!height : !!heightFt;
+
+  // Keep what's been typed when switching units. If nothing was changed after switching,
+  // switching back restores exactly what was typed (no rounding drift).
+  const [beforeSwitch, setBeforeSwitch] = useState<{ units: UnitSystem; weight: string; shown: string } | null>(null);
+  const switchUnits = (next: UnitSystem) => {
+    if (next === units) return;
+    if (Number.isFinite(heightN)) {
+      const { ft, inch } = cmToFtIn(heightN);
+      setHeight(String(Math.round(heightN)));
+      setHeightFt(String(ft));
+      setHeightIn(String(inch));
+    }
+    if (Number.isFinite(weightN)) {
+      const restore = beforeSwitch && beforeSwitch.units === next && beforeSwitch.shown === weight;
+      const shown = restore ? beforeSwitch.weight : String(displayWeight(weightN, next));
+      setBeforeSwitch({ units, weight, shown });
+      setWeight(shown);
+    }
+    setUnits(next);
+  };
 
   const errors = {
     age: age && !inRange(ageN, LIMITS.age) ? `Enter an age between ${LIMITS.age.min} and ${LIMITS.age.max}` : "",
     height:
-      height && !inRange(heightN, LIMITS.heightCm)
-        ? `Enter a height between ${LIMITS.heightCm.min} and ${LIMITS.heightCm.max} cm`
+      heightEntered && !inRange(heightN, LIMITS.heightCm)
+        ? units === "metric"
+          ? `Enter a height between ${LIMITS.heightCm.min} and ${LIMITS.heightCm.max} cm`
+          : "Enter a height between 4 ft 0 in and 7 ft 6 in"
         : "",
     weight:
       weight && !inRange(weightN, LIMITS.weightKg)
-        ? `Enter a weight between ${LIMITS.weightKg.min} and ${LIMITS.weightKg.max} kg`
+        ? units === "metric"
+          ? `Enter a weight between ${LIMITS.weightKg.min} and ${LIMITS.weightKg.max} kg`
+          : "Enter a weight between 66 and 660 lb"
         : "",
   };
 
@@ -127,7 +163,8 @@ const Onboarding = () => {
           gender: sex,
           age: Math.round(ageN),
           height: Math.round(heightN),
-          weight: Math.round(weightN),
+          weight: Math.round(weightN * 100) / 100,
+          units,
           activityLevel: activity,
           weightGoal: goal,
           calorieGoal: targets.calorieGoal,
@@ -200,19 +237,39 @@ const Onboarding = () => {
                 </div>
                 <p className="text-xs text-muted-foreground">Used only to estimate your energy needs.</p>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">Your measurements</span>
+                <UnitToggle value={units} onChange={switchUnits} />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="ob-age">Age</Label>
                   <Input id="ob-age" type="number" inputMode="numeric" value={age} onChange={(e) => setAge(e.target.value)} placeholder="25" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="ob-height">Height (cm)</Label>
-                  <Input id="ob-height" type="number" inputMode="numeric" value={height} onChange={(e) => setHeight(e.target.value)} placeholder="170" />
+                  <Label htmlFor="ob-weight">Weight ({units === "metric" ? "kg" : "lb"})</Label>
+                  <Input id="ob-weight" type="number" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder={units === "metric" ? "70" : "155"} />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ob-weight">Weight (kg)</Label>
-                  <Input id="ob-weight" type="number" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="70" />
-                </div>
+                {units === "metric" ? (
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                    <Label htmlFor="ob-height">Height (cm)</Label>
+                    <Input id="ob-height" type="number" inputMode="numeric" value={height} onChange={(e) => setHeight(e.target.value)} placeholder="170" />
+                  </div>
+                ) : (
+                  <div className="space-y-2 col-span-2 sm:col-span-1">
+                    <Label htmlFor="ob-height-ft">Height</Label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Input id="ob-height-ft" aria-label="Height, feet" type="number" inputMode="numeric" value={heightFt} onChange={(e) => setHeightFt(e.target.value)} placeholder="5" className="pr-7" />
+                        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">ft</span>
+                      </div>
+                      <div className="relative flex-1">
+                        <Input id="ob-height-in" aria-label="Height, inches" type="number" inputMode="numeric" value={heightIn} onChange={(e) => setHeightIn(e.target.value)} placeholder="7" className="pr-7" />
+                        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">in</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               {(errors.age || errors.height || errors.weight) && (
                 <p className="text-sm text-destructive" role="alert">
@@ -256,7 +313,11 @@ const Onboarding = () => {
                   selected={goal === g.value}
                   onClick={() => setGoal(g.value)}
                   title={g.label}
-                  description={g.description}
+                  description={
+                    units === "imperial"
+                      ? g.description.replace("0.5 kg", "1 lb").replace("0.25 kg", "0.5 lb")
+                      : g.description
+                  }
                 />
               ))}
             </CardContent>

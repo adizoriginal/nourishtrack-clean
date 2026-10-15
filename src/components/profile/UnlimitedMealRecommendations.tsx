@@ -119,6 +119,11 @@ export const UnlimitedMealRecommendations = () => {
         protein: meal.protein,
         carbs: meal.carbs,
         fats: meal.fats,
+        ingredients: meal.ingredients ?? null,
+        instructions: meal.instructions ?? null,
+        ready_in_minutes: meal.readyInMinutes ?? null,
+        servings: meal.servings ?? null,
+        source_url: meal.sourceUrl ?? null,
       });
 
       setSavedMeals((prev) => new Set([...prev, index]));

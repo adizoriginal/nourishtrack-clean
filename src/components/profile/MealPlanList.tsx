@@ -4,15 +4,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Plus } from "lucide-react";
 import { useState } from "react";
 import { MealDetailModal } from "./MealDetailModal";
-import { useMealPlans } from "@/hooks/useMealPlans";
+import { MealPlan, useMealPlans } from "@/hooks/useMealPlans";
 
 export const MealPlanList = () => {
   const { mealPlans, isLoading, deleteMealPlan } = useMealPlans();
   const [selectedMeal, setSelectedMeal] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleViewMeal = (meal: any) => {
-    setSelectedMeal(meal);
+  // Saved rows use database column names; the details window expects the generated-meal shape
+  const handleViewMeal = (meal: MealPlan) => {
+    setSelectedMeal({
+      ...meal,
+      description: meal.description ?? "",
+      ingredients: meal.ingredients ?? undefined,
+      instructions: meal.instructions ?? undefined,
+      readyInMinutes: meal.ready_in_minutes ?? undefined,
+      servings: meal.servings ?? undefined,
+      sourceUrl: meal.source_url ?? undefined,
+      isSaved: true,
+    });
     setIsModalOpen(true);
   };
 
@@ -26,7 +36,7 @@ export const MealPlanList = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            Recommended Meal Plans
+            Saved meals
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -43,7 +53,7 @@ export const MealPlanList = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            Recommended Meal Plans
+            Saved meals
             <span className="text-sm font-normal text-muted-foreground">
               {mealPlans.length} saved
             </span>
@@ -87,6 +97,7 @@ export const MealPlanList = () => {
                     size="sm"
                     className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     onClick={(e) => handleDeleteMeal(meal.id, e)}
+                    aria-label={`Delete ${meal.name}`}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

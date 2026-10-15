@@ -101,9 +101,14 @@ export type Database = {
           description: string | null
           fats: number
           id: string
+          ingredients: Json | null
+          instructions: Json | null
           meal_type: string
           name: string
           protein: number
+          ready_in_minutes: number | null
+          servings: number | null
+          source_url: string | null
           updated_at: string
           user_id: string
         }
@@ -114,9 +119,14 @@ export type Database = {
           description?: string | null
           fats: number
           id?: string
+          ingredients?: Json | null
+          instructions?: Json | null
           meal_type: string
           name: string
           protein: number
+          ready_in_minutes?: number | null
+          servings?: number | null
+          source_url?: string | null
           updated_at?: string
           user_id: string
         }
@@ -127,9 +137,14 @@ export type Database = {
           description?: string | null
           fats?: number
           id?: string
+          ingredients?: Json | null
+          instructions?: Json | null
           meal_type?: string
           name?: string
           protein?: number
+          ready_in_minutes?: number | null
+          servings?: number | null
+          source_url?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -151,6 +166,7 @@ export type Database = {
           id: string
           last_name: string | null
           protein_goal: number | null
+          units: string | null
           updated_at: string | null
           weight: number | null
           weight_goal: string | null
@@ -170,6 +186,7 @@ export type Database = {
           id: string
           last_name?: string | null
           protein_goal?: number | null
+          units?: string | null
           updated_at?: string | null
           weight?: number | null
           weight_goal?: string | null
@@ -189,6 +206,7 @@ export type Database = {
           id?: string
           last_name?: string | null
           protein_goal?: number | null
+          units?: string | null
           updated_at?: string | null
           weight?: number | null
           weight_goal?: string | null

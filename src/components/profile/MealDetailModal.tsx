@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Users, ChefHat, Plus, Info, ExternalLink } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { useAppContext } from "@/contexts/AppContext";
 
 interface MealDetailModalProps {
@@ -24,14 +23,14 @@ interface MealDetailModalProps {
     readyInMinutes?: number;
     servings?: number;
     sourceUrl?: string;
+    isSaved?: boolean;
   } | null;
 }
 
 export const MealDetailModal = ({ isOpen, onClose, meal }: MealDetailModalProps) => {
-  const { toast } = useToast();
   const { addFood, currentDate } = useAppContext();
 
-  const handleAddToFoodDiary = () => {
+  const handleAddToFoodDiary = async () => {
     if (!meal) return;
 
     const foodItem = {
@@ -44,14 +43,9 @@ export const MealDetailModal = ({ isOpen, onClose, meal }: MealDetailModalProps)
       servingSize: "1 serving"
     };
 
-    addFood(meal.meal_type, foodItem, currentDate);
-    
-    toast({
-      title: "Added to Food Diary!",
-      description: `${meal.name} has been added to your ${meal.meal_type} for today.`,
-    });
-    
-    onClose();
+    // addFood shows its own success or error message
+    const ok = await addFood(meal.meal_type, foodItem, currentDate);
+    if (ok) onClose();
   };
 
   const handleOpenChange = (open: boolean) => {
@@ -61,6 +55,9 @@ export const MealDetailModal = ({ isOpen, onClose, meal }: MealDetailModalProps)
   };
 
   if (!meal) return null;
+
+  const hasRecipe = (meal.ingredients?.length ?? 0) > 0 || (meal.instructions?.length ?? 0) > 0;
+  const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(meal.name + " recipe")}`;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -73,14 +70,18 @@ export const MealDetailModal = ({ isOpen, onClose, meal }: MealDetailModalProps)
           <div>
             <div className="flex items-center gap-2 mb-4 flex-wrap">
               <Badge variant="secondary" className="capitalize">{meal.meal_type}</Badge>
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {meal.readyInMinutes || 30} min
-              </Badge>
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {meal.servings || 2} servings
-              </Badge>
+              {meal.readyInMinutes ? (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {meal.readyInMinutes} min
+                </Badge>
+              ) : null}
+              {meal.servings ? (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  {meal.servings} servings
+                </Badge>
+              ) : null}
               {meal.sourceUrl && (
                 <Badge variant="outline" className="flex items-center gap-1">
                   <ExternalLink className="h-3 w-3" />
@@ -91,17 +92,15 @@ export const MealDetailModal = ({ isOpen, onClose, meal }: MealDetailModalProps)
               )}
             </div>
 
-            <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Info className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-800">About Servings</span>
+            {meal.servings ? (
+              <div className="mb-4 flex gap-2 rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
+                <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                <p>
+                  This recipe makes {meal.servings} serving{meal.servings > 1 ? "s" : ""}. Nutrition values are per
+                  serving.
+                </p>
               </div>
-              <p className="text-sm text-blue-700">
-                This recipe makes {meal.servings || 2} serving{(meal.servings || 2) > 1 ? 's' : ''}. 
-                The nutritional values shown are per serving. You can adjust the ingredients proportionally 
-                if you want to make more or fewer servings.
-              </p>
-            </div>
+            ) : null}
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/30 rounded-lg">
               <div>
@@ -153,6 +152,26 @@ export const MealDetailModal = ({ isOpen, onClose, meal }: MealDetailModalProps)
                   </li>
                 ))}
               </ol>
+            </div>
+          )}
+
+          {!hasRecipe && (
+            <div className="rounded-lg border p-4 text-sm space-y-2">
+              <p className="font-medium">Recipe not available</p>
+              <p className="text-muted-foreground">
+                {meal.isSaved
+                  ? "This meal was saved before NourishTrack started keeping full recipes, so only its nutrition was stored. Meals you save from now on will keep their ingredients and steps."
+                  : "No ingredients or steps were provided for this meal."}
+              </p>
+              <a
+                href={searchUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-medium text-nourish-700 underline-offset-4 hover:underline"
+              >
+                Search for this recipe
+                <ExternalLink className="h-3 w-3" />
+              </a>
             </div>
           )}
 

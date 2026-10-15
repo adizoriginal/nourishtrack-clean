@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { toLocalDateString } from "@/lib/dates";
+import { UnitSystem, formatWeight, guessUnits, readStoredUnits, storeUnits } from "@/lib/units";
 
 interface Food {
   id: string;
@@ -33,6 +34,7 @@ interface UserProfile {
   carbsGoal: number;
   fatGoal: number;
   dietaryPreferences: string[];
+  units: UnitSystem;
 }
 
 interface DailyMeals {
@@ -92,6 +94,7 @@ const defaultProfile: UserProfile = {
   carbsGoal: 200,
   fatGoal: 65,
   dietaryPreferences: [],
+  units: readStoredUnits() ?? guessUnits(),
 };
 
 const getTodayString = () => toLocalDateString();
@@ -166,6 +169,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           carbsGoal: data.carbs_goal || 200,
           fatGoal: data.fat_goal || 65,
           dietaryPreferences: data.dietary_preferences ? JSON.parse(data.dietary_preferences) : [],
+          units:
+            data.units === "metric" || data.units === "imperial"
+              ? data.units
+              : readStoredUnits() ?? guessUnits(),
         });
       }
     } catch (error) {
@@ -423,7 +430,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       
       toast({
         title: `Weight ${result === 'updated' ? 'updated' : 'logged'} successfully!`,
-        description: `Your weight of ${weight} kg has been ${result === 'updated' ? 'updated' : 'recorded'} for today.`,
+        description: `Your weight of ${formatWeight(weight, profile.units)} has been ${result === 'updated' ? 'updated' : 'recorded'} for today.`,
       });
     } catch (error: any) {
       console.error('Error adding/updating weight record:', error);
@@ -440,10 +447,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     
     const updatedProfile = { ...profile, ...newProfileData };
     
+    storeUnits(updatedProfile.units);
+
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
+      const row: Record<string, unknown> = {
           id: user.id,
           email: user.email,
           first_name: updatedProfile.name.split(' ')[0] || updatedProfile.name,
@@ -459,7 +466,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           carbs_goal: updatedProfile.carbsGoal,
           fat_goal: updatedProfile.fatGoal,
           dietary_preferences: JSON.stringify(updatedProfile.dietaryPreferences || []),
-        });
+          units: updatedProfile.units,
+      };
+
+      // Work with databases that haven't had the units update yet:
+      // drop the units column if it doesn't exist, and round weight if it's still whole numbers only.
+      let { error } = await supabase.from('profiles').upsert(row as never);
+      for (let attempt = 0; error && attempt < 2; attempt++) {
+        if ('units' in row && (error.code === 'PGRST204' || /units/i.test(error.message))) {
+          delete row.units;
+        } else if ((error.code === '22P02' || error.code === '22003') && typeof row.weight === 'number') {
+          row.weight = Math.round(row.weight);
+        } else {
+          break;
+        }
+        ({ error } = await supabase.from('profiles').upsert(row as never));
+      }
 
       if (error) throw error;
 
