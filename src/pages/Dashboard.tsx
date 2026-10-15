@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppContext } from "@/contexts/AppContext";
 import { DailySummary } from "@/components/dashboard/DailySummary";
 import { Meter } from "@/components/dashboard/Meter";
+import { StreakBadge } from "@/components/dashboard/StreakBadge";
+import { WaterCard } from "@/components/water/WaterCard";
 import { toLocalDateString } from "@/lib/dates";
 import { displayWeight, weightUnitLabel } from "@/lib/units";
 
@@ -54,12 +56,15 @@ const Dashboard = () => {
             {firstName ? `, ${firstName}` : ""}
           </h1>
         </div>
-        <Button asChild size="lg" className="gap-2 w-full sm:w-auto">
-          <Link to="/food-diary">
-            <Plus className="h-5 w-5" />
-            Log food
-          </Link>
-        </Button>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <StreakBadge />
+          <Button asChild size="lg" className="gap-2 w-full sm:w-auto">
+            <Link to="/food-diary">
+              <Plus className="h-5 w-5" />
+              Log food
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Calories: the one number this page leads with */}
@@ -125,6 +130,9 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
+        <div className="space-y-6">
+        <WaterCard date={todayString} />
+
         {/* Weight */}
         <Card className="nourish-card">
           <CardHeader className="pb-2">
@@ -167,6 +175,7 @@ const Dashboard = () => {
             </Button>
           </CardContent>
         </Card>
+        </div>
       </div>
 
       <DailySummary meals={todaysMeals} date={today} />

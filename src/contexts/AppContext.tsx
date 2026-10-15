@@ -61,6 +61,13 @@ interface AppContextType {
   /** null while loading, false when the user still needs to finish setup */
   profileComplete: boolean | null;
   addFood: (mealType: string, food: Food, date?: string) => Promise<boolean>;
+  /** Add several foods at once (e.g. copying yesterday's meals) with a single confirmation */
+  addFoods: (items: { mealType: string; food: Food }[], date: string) => Promise<boolean>;
+  /** Change an already-logged food (e.g. its amount) */
+  updateFood: (mealType: string, food: Food, date: string) => Promise<boolean>;
+  /** Glasses of water per date (YYYY-MM-DD) */
+  waterByDate: Record<string, number>;
+  setWater: (date: string, glasses: number) => Promise<void>;
   removeFood: (mealType: string, foodId: string, date?: string) => Promise<void>;
   addWeightRecord: (weight: number) => Promise<void>;
   updateProfile: (profile: Partial<UserProfile>, options?: { silent?: boolean }) => Promise<void>;
@@ -110,6 +117,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
   const [isLoading, setIsLoading] = useState(false);
   const [profileComplete, setProfileComplete] = useState<boolean | null>(null);
+  const [waterByDate, setWaterByDate] = useState<Record<string, number>>({});
+  // "local" until the water_entries table exists in the database
+  const [waterStore, setWaterStore] = useState<"db" | "local">("db");
 
   const meals = allMeals[currentDate] || {
     breakfast: [],
@@ -265,6 +275,76 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const localWaterKey = () => `nourishtrack:water:${user?.id}`;
+  const readLocalWater = (): Record<string, number> => {
+    try {
+      return JSON.parse(localStorage.getItem(localWaterKey()) || "{}");
+    } catch {
+      return {};
+    }
+  };
+  const isMissingTable = (error: { code?: string; message?: string }) =>
+    error.code === '42P01' || error.code === 'PGRST205' || /water_entries/i.test(error.message || '');
+
+  const loadWaterEntries = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('water_entries')
+      .select('entry_date, glasses')
+      .eq('user_id', user.id);
+    if (error) {
+      if (isMissingTable(error)) {
+        setWaterStore("local");
+        setWaterByDate(readLocalWater());
+      } else {
+        console.error('Error loading water:', error);
+      }
+      return;
+    }
+    setWaterStore("db");
+    const map: Record<string, number> = {};
+    data?.forEach((r) => {
+      map[r.entry_date] = r.glasses;
+    });
+    setWaterByDate(map);
+  };
+
+  const setWater = async (date: string, glasses: number) => {
+    if (!user) return;
+    const value = Math.max(0, Math.min(50, Math.round(glasses)));
+    const previous = waterByDate[date] ?? 0;
+    setWaterByDate(prev => ({ ...prev, [date]: value })); // update straight away
+
+    const saveLocal = () => {
+      try {
+        const all = readLocalWater();
+        all[date] = value;
+        localStorage.setItem(localWaterKey(), JSON.stringify(all));
+      } catch {
+        /* ignore */
+      }
+    };
+
+    if (waterStore === "local") {
+      saveLocal();
+      return;
+    }
+    const { error } = await supabase
+      .from('water_entries')
+      .upsert({ user_id: user.id, entry_date: date, glasses: value, updated_at: new Date().toISOString() }, {
+        onConflict: 'user_id,entry_date',
+      });
+    if (error) {
+      if (isMissingTable(error)) {
+        setWaterStore("local");
+        saveLocal();
+        return;
+      }
+      setWaterByDate(prev => ({ ...prev, [date]: previous }));
+      toast({ variant: "destructive", title: "Couldn't save water", description: error.message });
+    }
+  };
+
   const loadUserData = async () => {
     if (!user) return;
     
@@ -274,6 +354,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         loadUserProfile(),
         loadFoodEntries(),
         loadWeightEntries(),
+        loadWaterEntries(),
       ]);
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -339,6 +420,94 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         title: "Error adding food",
         description: error.message,
       });
+      return false;
+    }
+  };
+
+  const addFoods = async (items: { mealType: string; food: Food }[], date: string): Promise<boolean> => {
+    if (!user || items.length === 0) return false;
+    try {
+      const { data, error } = await supabase
+        .from('food_entries')
+        .insert(
+          items.map(({ mealType, food }) => ({
+            user_id: user.id,
+            food_id: food.id,
+            name: food.name,
+            calories: Math.round(food.calories),
+            protein: food.protein,
+            carbs: food.carbs,
+            fat: food.fat,
+            serving_size: food.servingSize,
+            meal_type: mealType,
+            entry_date: date,
+          }))
+        )
+        .select();
+      if (error) throw error;
+
+      setAllMeals(prev => {
+        const day = { ...(prev[date] || { breakfast: [], lunch: [], dinner: [], snacks: [] }) };
+        (data || []).forEach((row) => {
+          const meal = row.meal_type as keyof typeof day;
+          day[meal] = [
+            ...day[meal],
+            {
+              id: row.id,
+              name: row.name,
+              calories: row.calories,
+              protein: row.protein,
+              carbs: row.carbs,
+              fat: row.fat,
+              servingSize: row.serving_size,
+              date,
+            },
+          ];
+        });
+        return { ...prev, [date]: day };
+      });
+
+      toast({
+        title: items.length === 1 ? "Food added" : `${items.length} foods added`,
+      });
+      return true;
+    } catch (error: any) {
+      console.error('Error adding foods:', error);
+      toast({ variant: "destructive", title: "Couldn't add foods", description: error.message });
+      return false;
+    }
+  };
+
+  const updateFood = async (mealType: string, food: Food, date: string): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      const { error } = await supabase
+        .from('food_entries')
+        .update({
+          calories: Math.round(food.calories),
+          protein: food.protein,
+          carbs: food.carbs,
+          fat: food.fat,
+          serving_size: food.servingSize,
+        })
+        .eq('id', food.id)
+        .eq('user_id', user.id);
+      if (error) throw error;
+
+      setAllMeals(prev => {
+        const day = prev[date];
+        if (!day) return prev;
+        const meal = mealType as keyof typeof day;
+        return {
+          ...prev,
+          [date]: { ...day, [meal]: day[meal].map((f) => (f.id === food.id ? { ...f, ...food } : f)) },
+        };
+      });
+      toast({ title: "Updated", description: `${food.name}: ${food.servingSize}` });
+      return true;
+    } catch (error: any) {
+      console.error('Error updating food:', error);
+      toast({ variant: "destructive", title: "Couldn't update food", description: error.message });
       return false;
     }
   };
@@ -547,6 +716,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setProfile(defaultProfile);
       setWeightHistory([]);
       setProfileComplete(null);
+      setWaterByDate({});
     }
   }, [user]);
 
@@ -561,6 +731,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         profileComplete,
         addFood,
+        addFoods,
+        updateFood,
+        waterByDate,
+        setWater,
         removeFood,
         addWeightRecord,
         updateProfile,

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -10,6 +10,8 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { MealCard } from "./MealCard";
 import { AddFoodModal, NewFood } from "./AddFoodModal";
+import { EditFoodDialog, LoggedFood } from "./EditFoodDialog";
+import { WaterCard } from "@/components/water/WaterCard";
 import { cn } from "@/lib/utils";
 import { useAppContext } from "@/contexts/AppContext";
 import { toLocalDateString } from "@/lib/dates";
@@ -25,11 +27,44 @@ const MEALS: { type: MealType; title: string }[] = [
 ];
 
 export const FoodDiary = () => {
-  const { currentDate, setCurrentDate, getMealsForDate, allMeals, addFood, removeFood } = useAppContext();
+  const { currentDate, setCurrentDate, getMealsForDate, allMeals, addFood, addFoods, updateFood, removeFood } =
+    useAppContext();
   const [addingTo, setAddingTo] = useState<MealType | null>(null);
+  const [editing, setEditing] = useState<{ meal: MealType; food: LoggedFood } | null>(null);
+  const [copying, setCopying] = useState(false);
 
   const date = new Date(currentDate + "T00:00:00");
   const displayMeals = getMealsForDate(currentDate);
+
+  // The day before the one being viewed, for "copy" shortcuts
+  const dayBefore = new Date(date);
+  dayBefore.setDate(dayBefore.getDate() - 1);
+  const dayBeforeString = toLocalDateString(dayBefore);
+  const previousMeals = getMealsForDate(dayBeforeString);
+  const isToday = currentDate === toLocalDateString();
+  const previousLabel = isToday ? "yesterday" : format(dayBefore, "MMM d");
+
+  const dayIsEmpty = MEALS.every((m) => displayMeals[m.type].length === 0);
+  const previousItems = MEALS.flatMap((m) => previousMeals[m.type].map((food) => ({ mealType: m.type, food })));
+
+  const copyItems = async (items: { mealType: MealType; food: LoggedFood }[]) => {
+    if (items.length === 0) return;
+    setCopying(true);
+    await addFoods(
+      items.map(({ mealType, food }) => ({
+        mealType,
+        food: { ...food, id: `copy-${food.id}` },
+      })),
+      currentDate
+    );
+    setCopying(false);
+  };
+
+  const shiftDay = (days: number) => {
+    const d = new Date(date);
+    d.setDate(d.getDate() + days);
+    setCurrentDate(toLocalDateString(d));
+  };
 
   // The user's most recently logged foods, so repeat meals are one tap away.
   const recentFoods = useMemo<FoodOption[]>(() => {
@@ -76,6 +111,10 @@ export const FoodDiary = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl font-bold">Food Diary</h1>
+        <div className="flex items-center gap-1">
+        <Button variant="ghost" size="icon" onClick={() => shiftDay(-1)} aria-label="Previous day">
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" className="flex items-center gap-2">
@@ -94,7 +133,27 @@ export const FoodDiary = () => {
             />
           </PopoverContent>
         </Popover>
+        <Button variant="ghost" size="icon" onClick={() => shiftDay(1)} disabled={isToday} aria-label="Next day">
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        </div>
       </div>
+
+      {dayIsEmpty && previousItems.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-dashed p-4">
+          <div className="text-sm">
+            <div className="font-medium">Eating the same as {previousLabel}?</div>
+            <div className="text-muted-foreground">
+              Copy all {previousItems.length} foods (
+              {Math.round(previousItems.reduce((sum, i) => sum + i.food.calories, 0)).toLocaleString()} kcal) in one tap.
+            </div>
+          </div>
+          <Button onClick={() => copyItems(previousItems)} disabled={copying}>
+            <Copy className="h-4 w-4 mr-2" />
+            {copying ? "Copying..." : `Copy all of ${previousLabel}`}
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6">
         {MEALS.map((m) => (
@@ -104,9 +163,36 @@ export const FoodDiary = () => {
             foods={displayMeals[m.type]}
             onAddFood={() => setAddingTo(m.type)}
             onRemoveFood={(foodId) => removeFood(m.type, foodId, currentDate)}
+            onEditFood={(food) => setEditing({ meal: m.type, food })}
+            copyFromYesterday={
+              // Only offer per-meal copy when the rest of the day isn't empty (otherwise the "copy all" box shows)
+              !dayIsEmpty && displayMeals[m.type].length === 0 && previousMeals[m.type].length > 0
+                ? {
+                    label: `Copy ${previousLabel}'s ${m.title.toLowerCase()}`,
+                    count: previousMeals[m.type].length,
+                    calories: previousMeals[m.type].reduce((sum, f) => sum + f.calories, 0),
+                    onCopy: () => copyItems(previousMeals[m.type].map((food) => ({ mealType: m.type, food }))),
+                    busy: copying,
+                  }
+                : undefined
+            }
           />
         ))}
+        <WaterCard date={currentDate} />
       </div>
+
+      {editing && (
+        <EditFoodDialog
+          food={editing.food}
+          mealLabel={MEALS.find((m) => m.type === editing.meal)?.title.toLowerCase() ?? ""}
+          onClose={() => setEditing(null)}
+          onSave={(updated) => updateFood(editing.meal, updated, currentDate)}
+          onRemove={() => {
+            removeFood(editing.meal, editing.food.id, currentDate);
+            setEditing(null);
+          }}
+        />
+      )}
 
       <AddFoodModal
         isOpen={addingTo !== null}

@@ -213,6 +213,30 @@ export type Database = {
         }
         Relationships: []
       }
+      water_entries: {
+        Row: {
+          entry_date: string
+          glasses: number
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          entry_date: string
+          glasses?: number
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          entry_date?: string
+          glasses?: number
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       weight_entries: {
         Row: {
           created_at: string
