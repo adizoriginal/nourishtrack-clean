@@ -1,6 +1,9 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
+import { Link } from "react-router-dom";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface MealSummary {
   name: string;
@@ -33,10 +36,18 @@ export const DailySummary = ({ meals, date }: DailySummaryProps) => {
     <Card className="nourish-card">
       <CardHeader>
         <CardTitle className="flex justify-between items-center">
-          <span>Today's Meals</span>
-          <span className="text-sm font-medium text-muted-foreground">
-            {format(date, "MMMM d, yyyy")}
+          <span>
+            Today's Meals
+            <span className="block text-sm font-medium text-muted-foreground">
+              {format(date, "MMMM d, yyyy")}
+            </span>
           </span>
+          <Button asChild size="sm">
+            <Link to="/food-diary">
+              <Plus className="h-4 w-4 mr-1" />
+              Log food
+            </Link>
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent>

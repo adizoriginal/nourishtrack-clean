@@ -13,9 +13,19 @@ serve(async (req) => {
   }
 
   try {
-    const { mealType, count = 3, userId } = await req.json();
-    
-    console.log('Generating personalized meals for user:', userId, 'meal type:', mealType);
+    const body = await req.json().catch(() => ({}));
+    const mealType = body?.mealType;
+    // Cap how many meals one request can generate so nobody can drain the Spoonacular quota.
+    const MAX_MEALS_PER_REQUEST = 5;
+    const requestedCount = Number(body?.count ?? 3);
+    const count = Math.min(Math.max(Number.isFinite(requestedCount) ? Math.floor(requestedCount) : 3, 1), MAX_MEALS_PER_REQUEST);
+
+    if (!['breakfast', 'lunch', 'dinner', 'snacks'].includes(mealType)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid meal type' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
 
     const spoonacularApiKey = Deno.env.get('SPOONACULAR_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -52,37 +62,46 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Identify the caller from their login token. Never trust a user id sent in the request body.
+    const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+    const { data: authData, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !authData?.user) {
+      return new Response(
+        JSON.stringify({ error: 'Please sign in to generate meals' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+    const userId = authData.user.id;
+
     // Fetch user profile for personalized nutrition goals
     let userProfile = null;
-    if (userId) {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
 
-      if (profileError) {
-        console.log('Could not fetch user profile, using defaults:', profileError.message);
-      } else {
-        userProfile = profile;
-        console.log('User profile loaded:', userProfile);
-      }
+    if (profileError) {
+      console.log('Could not fetch user profile, using defaults');
+    } else {
+      userProfile = profile;
     }
 
     // Calculate personalized nutrition targets
     const nutritionTargets = calculateNutritionTargets(userProfile, mealType);
-    console.log('Calculated nutrition targets:', nutritionTargets);
 
     // Parse dietary preferences
-    const dietaryPreferences = userProfile?.dietary_preferences ? 
-      JSON.parse(userProfile.dietary_preferences) : [];
-    console.log('User dietary preferences:', dietaryPreferences);
+    let dietaryPreferences: string[] = [];
+    try {
+      dietaryPreferences = userProfile?.dietary_preferences ? JSON.parse(userProfile.dietary_preferences) : [];
+    } catch {
+      dietaryPreferences = [];
+    }
 
     const meals = [];
 
     // Generate the requested number of meals for the specific meal type
     for (let i = 0; i < count; i++) {
-      console.log(`Generating personalized ${mealType} meal ${i + 1}...`);
       
       try {
         // Build personalized search parameters
@@ -139,11 +158,6 @@ serve(async (req) => {
           if (dietaryPreferences.includes('low-sodium')) {
             searchParams.append('maxSodium', '1500'); // Low sodium
           }
-
-          console.log('Applied dietary preferences to search:', {
-            diets: applicableDiets,
-            intolerances: applicableIntolerances
-          });
         }
 
         // Add personalized nutrition constraints
@@ -173,7 +187,6 @@ serve(async (req) => {
         }
 
         const searchUrl = `https://api.spoonacular.com/recipes/complexSearch?${searchParams}`;
-        console.log('Searching for personalized recipes with dietary preferences:', searchUrl);
         
         const searchResponse = await fetch(searchUrl);
         
@@ -215,7 +228,6 @@ serve(async (req) => {
           }
           
           const fallbackUrl = `https://api.spoonacular.com/recipes/complexSearch?${fallbackParams}`;
-          console.log('Trying fallback search with dietary preferences:', fallbackUrl);
           
           const fallbackResponse = await fetch(fallbackUrl);
           if (!fallbackResponse.ok) {
@@ -233,11 +245,9 @@ serve(async (req) => {
         }
 
         const recipe = searchData.results[0];
-        console.log(`Found personalized recipe for ${mealType}:`, recipe.title);
 
         // Second API call: Get detailed recipe information with instructions
         const detailUrl = `https://api.spoonacular.com/recipes/${recipe.id}/information?apiKey=${spoonacularApiKey}&includeNutrition=true`;
-        console.log('Fetching recipe details with URL:', detailUrl);
         
         const detailResponse = await fetch(detailUrl);
         
@@ -249,7 +259,6 @@ serve(async (req) => {
         }
 
         const detailData = await detailResponse.json();
-        console.log(`Got detailed personalized recipe for ${mealType}:`, detailData.title);
 
         // Extract nutrition information
         const nutrition = detailData.nutrition?.nutrients || [];
@@ -281,7 +290,7 @@ serve(async (req) => {
           servings: detailData.servings || 2,
           sourceUrl: detailData.sourceUrl || detailData.spoonacularSourceUrl,
           nutritionTargets: nutritionTargets,
-          dietaryPreferences: dietaryPreferences // Include in response for debugging
+          dietaryPreferences: dietaryPreferences
         };
 
         meals.push(meal);
@@ -305,7 +314,6 @@ serve(async (req) => {
       );
     }
 
-    console.log('Successfully generated personalized meals with dietary preferences:', meals.length);
 
     return new Response(
       JSON.stringify({ meals }),

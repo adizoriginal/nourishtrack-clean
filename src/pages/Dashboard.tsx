@@ -1,4 +1,5 @@
 
+import { toLocalDateString } from "@/lib/dates";
 import { useAppContext } from "@/contexts/AppContext";
 import { DashboardSummary } from "@/components/dashboard/DashboardSummary";
 import { NutrientChart } from "@/components/dashboard/NutrientChart";
@@ -9,7 +10,7 @@ const Dashboard = () => {
   const { profile, getMealsForDate, weightHistory, getNutritionSummary, currentDate } = useAppContext();
   
   // Get today's nutrition data
-  const todayString = new Date().toISOString().split('T')[0];
+  const todayString = toLocalDateString();
   const { caloriesConsumed, proteinConsumed, carbsConsumed, fatConsumed } = getNutritionSummary(todayString);
   const todaysMeals = getMealsForDate(todayString);
   

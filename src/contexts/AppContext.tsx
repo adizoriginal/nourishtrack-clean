@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { toLocalDateString } from "@/lib/dates";
 
 interface Food {
   id: string;
@@ -55,7 +56,7 @@ interface AppContextType {
   weightHistory: WeightRecord[];
   profile: UserProfile;
   isLoading: boolean;
-  addFood: (mealType: string, food: Food, date?: string) => Promise<void>;
+  addFood: (mealType: string, food: Food, date?: string) => Promise<boolean>;
   removeFood: (mealType: string, foodId: string, date?: string) => Promise<void>;
   addWeightRecord: (weight: number) => Promise<void>;
   updateProfile: (profile: Partial<UserProfile>) => Promise<void>;
@@ -91,7 +92,7 @@ const defaultProfile: UserProfile = {
   dietaryPreferences: [],
 };
 
-const getTodayString = () => new Date().toISOString().split('T')[0];
+const getTodayString = () => toLocalDateString();
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -112,13 +113,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const setCurrentDate = (date: string) => {
-    console.log('Setting current date to:', date);
     setCurrentDateState(date);
   };
 
   const getMealsForDate = (date: string) => {
-    console.log('Getting meals for date:', date);
-    console.log('All meals available:', Object.keys(allMeals));
     
     const mealsForDate = allMeals[date] || {
       breakfast: [],
@@ -127,7 +125,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       snacks: [],
     };
     
-    console.log('Returning meals for date:', date, mealsForDate);
     return mealsForDate;
   };
 
@@ -186,7 +183,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       
       data?.forEach((entry) => {
         const date = entry.entry_date;
-        console.log('Processing food entry for date:', date, 'food:', entry.name);
         
         if (!mealsByDate[date]) {
           mealsByDate[date] = {
@@ -212,7 +208,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         mealsByDate[date][mealType].push(food);
       });
       
-      console.log('Final loaded meals by date:', mealsByDate);
       setAllMeals(mealsByDate);
     } catch (error) {
       console.error('Error loading food entries:', error);
@@ -262,8 +257,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const addFood = async (mealType: string, food: Food, date?: string) => {
-    if (!user) return;
+  const addFood = async (mealType: string, food: Food, date?: string): Promise<boolean> => {
+    if (!user) return false;
     
     const targetDate = date || currentDate;
     const foodWithDate = { ...food, date: targetDate };
@@ -275,7 +270,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           user_id: user.id,
           food_id: food.id,
           name: food.name,
-          calories: food.calories,
+          calories: Math.round(food.calories),
           protein: food.protein,
           carbs: food.carbs,
           fat: food.fat,
@@ -288,8 +283,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
 
-      console.log('Successfully added food to database:', data);
-      console.log('Adding food to date:', targetDate, 'meal:', mealType, 'food:', food.name);
 
       // Create new food object with database ID
       const newFood = {
@@ -306,14 +299,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             [mealType]: [...(prevMeals[targetDate]?.[mealType as keyof typeof prevMeals[typeof targetDate]] || []), newFood]
           }
         };
-        console.log('Updated all meals after add:', updatedMeals);
         return updatedMeals;
       });
 
       toast({
         title: "Food added successfully!",
-        description: `${food.name} added to ${mealType} for ${targetDate}`,
+        description: `${food.name} added to ${mealType}`,
       });
+      return true;
     } catch (error: any) {
       console.error('Error adding food:', error);
       toast({
@@ -321,6 +314,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         title: "Error adding food",
         description: error.message,
       });
+      return false;
     }
   };
 
@@ -338,8 +332,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) throw error;
 
-      console.log('Successfully removed food from database. Food ID:', foodId);
-      console.log('Removing food from date:', targetDate, 'meal:', mealType);
 
       // Update local state immediately
       setAllMeals(prevMeals => {
@@ -350,7 +342,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             [mealType]: (prevMeals[targetDate]?.[mealType as keyof typeof prevMeals[typeof targetDate]] || []).filter(food => food.id !== foodId)
           }
         };
-        console.log('Updated all meals after removal:', updatedMeals);
         return updatedMeals;
       });
 
@@ -370,7 +361,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const addWeightRecord = async (weight: number) => {
     if (!user) return;
     
-    const today = new Date().toISOString().split('T')[0];
+    const today = toLocalDateString();
     
     try {
       // First, check if an entry already exists for today

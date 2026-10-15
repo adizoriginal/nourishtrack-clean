@@ -65,12 +65,21 @@ export const UnlimitedMealRecommendations = () => {
         body: {
           mealType: selectedMealType,
           count: 3,
-          userId: user.id,
         },
       });
 
       if (error) {
-        throw new Error("Meal generation limit reached. Try again later or reach out to support on the contact page.");
+        // Show what actually went wrong instead of always blaming the limit.
+        const status: number | undefined = (error as any)?.context?.status;
+        if (status === 401) {
+          throw new Error("Your session has expired. Please sign in again.");
+        }
+        if (status === 404) {
+          throw new Error(
+            "We couldn't find meals matching your goals right now. The daily recipe limit may have been reached. Please try again later."
+          );
+        }
+        throw new Error("Something went wrong while generating meals. Please check your connection and try again.");
       }
 
       setGeneratedMeals(data.meals || []);

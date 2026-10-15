@@ -31,7 +31,6 @@ const Auth = () => {
   useEffect(() => {
     supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") {
-        console.log("Password recovery initiated");
       } else if (event === "SIGNED_IN" && session) {
         setTimeout(() => {
           navigate("/dashboard");

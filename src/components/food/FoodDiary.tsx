@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "lucide-react";
 import {
@@ -10,103 +9,73 @@ import {
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { MealCard } from "./MealCard";
+import { AddFoodModal, NewFood } from "./AddFoodModal";
 import { cn } from "@/lib/utils";
 import { useAppContext } from "@/contexts/AppContext";
+import { toLocalDateString } from "@/lib/dates";
+import type { FoodOption } from "@/lib/foodSearch";
 
-interface Food {
-  id: string;
-  name: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  servingSize: string;
-}
+type MealType = "breakfast" | "lunch" | "dinner" | "snacks";
 
-interface FoodDiaryProps {
-  meals: {
-    breakfast: Food[];
-    lunch: Food[];
-    dinner: Food[];
-    snacks: Food[];
-  };
-  onRemoveFood: (mealType: string, foodId: string) => void;
-}
+const MEALS: { type: MealType; title: string }[] = [
+  { type: "breakfast", title: "Breakfast" },
+  { type: "lunch", title: "Lunch" },
+  { type: "dinner", title: "Dinner" },
+  { type: "snacks", title: "Snacks" },
+];
 
-export const FoodDiary = ({ meals, onRemoveFood }: FoodDiaryProps) => {
-  const { currentDate, setCurrentDate, getMealsForDate } = useAppContext();
-  const [date, setDate] = useState<Date>(new Date(currentDate));
-  const [displayMeals, setDisplayMeals] = useState(meals);
+export const FoodDiary = () => {
+  const { currentDate, setCurrentDate, getMealsForDate, allMeals, addFood, removeFood } = useAppContext();
+  const [addingTo, setAddingTo] = useState<MealType | null>(null);
 
-  // Convert Date object to YYYY-MM-DD string consistently
-  const dateToString = (dateObj: Date) => {
-    const year = dateObj.getFullYear();
-    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const day = String(dateObj.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+  const date = new Date(currentDate + "T00:00:00");
+  const displayMeals = getMealsForDate(currentDate);
 
-  // Update display meals when date changes
-  useEffect(() => {
-    const dateString = dateToString(date);
-    console.log('Date changed to:', dateString);
-    console.log('Date object:', date);
-    
-    // Get meals for the specific date
-    const mealsForDate = getMealsForDate(dateString);
-    console.log('Meals for date:', dateString, mealsForDate);
-    
-    setDisplayMeals(mealsForDate);
-    
-    // Update context current date
-    if (dateString !== currentDate) {
-      console.log('Updating context current date from', currentDate, 'to', dateString);
-      setCurrentDate(dateString);
+  // The user's most recently logged foods, so repeat meals are one tap away.
+  const recentFoods = useMemo<FoodOption[]>(() => {
+    const seen = new Set<string>();
+    const recents: FoodOption[] = [];
+    const dates = Object.keys(allMeals).sort().reverse();
+    for (const d of dates) {
+      for (const m of MEALS) {
+        for (const food of [...(allMeals[d]?.[m.type] ?? [])].reverse()) {
+          const key = `${food.name}|${food.servingSize}`.toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          recents.push({
+            key: `recent-${key}`,
+            name: food.name,
+            unit: "serving",
+            baseAmount: 1,
+            defaultAmount: 1,
+            servingLabel: food.servingSize,
+            calories: food.calories,
+            protein: food.protein,
+            carbs: food.carbs,
+            fat: food.fat,
+          });
+          if (recents.length >= 10) return recents;
+        }
+      }
     }
-  }, [date, getMealsForDate, setCurrentDate, currentDate]);
-
-  // Initialize date from context on mount
-  useEffect(() => {
-    const contextDate = new Date(currentDate + 'T00:00:00');
-    console.log('Initializing date from context:', currentDate, 'as Date object:', contextDate);
-    setDate(contextDate);
-  }, []);
+    return recents;
+  }, [allMeals]);
 
   const handleDateChange = (newDate: Date | undefined) => {
-    if (newDate) {
-      console.log('Calendar date selected:', newDate);
-      console.log('Calendar date ISO string:', newDate.toISOString());
-      
-      // Ensure we're working with the local date, not UTC
-      const localDate = new Date(newDate.getFullYear(), newDate.getMonth(), newDate.getDate());
-      console.log('Local date created:', localDate);
-      
-      setDate(localDate);
-    }
+    if (newDate) setCurrentDate(toLocalDateString(newDate));
   };
 
-  const handleRemoveFood = (mealType: string, foodId: string) => {
-    const dateString = dateToString(date);
-    console.log('Removing food:', foodId, 'from', mealType, 'on', dateString);
-    
-    onRemoveFood(mealType, foodId);
-    
-    // Update display meals immediately after removal
-    setTimeout(() => {
-      const updatedMeals = getMealsForDate(dateString);
-      console.log('Updated meals after removal:', updatedMeals);
-      setDisplayMeals(updatedMeals);
-    }, 100);
+  const handleAddFood = async (food: NewFood) => {
+    if (addingTo) await addFood(addingTo, food, currentDate);
   };
 
-  // Get today's date for restriction (only allow past and present dates)
   const today = new Date();
   today.setHours(23, 59, 59, 999);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl font-bold">Food Diary</h2>
+        <h1 className="text-2xl font-bold">Food Diary</h1>
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" className="flex items-center gap-2">
@@ -119,7 +88,7 @@ export const FoodDiary = ({ meals, onRemoveFood }: FoodDiaryProps) => {
               mode="single"
               selected={date}
               onSelect={handleDateChange}
-              disabled={(date) => date > today}
+              disabled={(d) => d > today}
               initialFocus
               className={cn("p-3 pointer-events-auto")}
             />
@@ -128,30 +97,24 @@ export const FoodDiary = ({ meals, onRemoveFood }: FoodDiaryProps) => {
       </div>
 
       <div className="grid grid-cols-1 gap-6">
-        <MealCard 
-          title="Breakfast" 
-          foods={displayMeals.breakfast} 
-          onRemoveFood={(foodId) => handleRemoveFood("breakfast", foodId)} 
-        />
-        
-        <MealCard 
-          title="Lunch" 
-          foods={displayMeals.lunch} 
-          onRemoveFood={(foodId) => handleRemoveFood("lunch", foodId)} 
-        />
-        
-        <MealCard 
-          title="Dinner" 
-          foods={displayMeals.dinner} 
-          onRemoveFood={(foodId) => handleRemoveFood("dinner", foodId)} 
-        />
-        
-        <MealCard 
-          title="Snacks" 
-          foods={displayMeals.snacks} 
-          onRemoveFood={(foodId) => handleRemoveFood("snacks", foodId)} 
-        />
+        {MEALS.map((m) => (
+          <MealCard
+            key={m.type}
+            title={m.title}
+            foods={displayMeals[m.type]}
+            onAddFood={() => setAddingTo(m.type)}
+            onRemoveFood={(foodId) => removeFood(m.type, foodId, currentDate)}
+          />
+        ))}
       </div>
+
+      <AddFoodModal
+        isOpen={addingTo !== null}
+        onClose={() => setAddingTo(null)}
+        onAddFood={handleAddFood}
+        mealType={MEALS.find((m) => m.type === addingTo)?.title.toLowerCase() ?? ""}
+        recentFoods={recentFoods}
+      />
     </div>
   );
 };

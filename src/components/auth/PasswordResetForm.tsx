@@ -20,7 +20,6 @@ const PasswordResetForm = () => {
     const handleAuthStateChange = () => {
       supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'PASSWORD_RECOVERY') {
-          console.log('Password recovery mode activated');
         }
       });
     };

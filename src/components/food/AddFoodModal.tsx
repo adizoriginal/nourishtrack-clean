@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,9 +10,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Search } from "lucide-react";
+import { FoodOption, scaleFood, searchFoods } from "@/lib/foodSearch";
 
-interface Food {
+export interface NewFood {
   id: string;
   name: string;
   calories: number;
@@ -23,139 +24,276 @@ interface Food {
   servingSize: string;
 }
 
-// Sample food database
-const foodDatabase: Food[] = [
-  { id: "1", name: "Apple", calories: 95, protein: 0.5, carbs: 25, fat: 0.3, servingSize: "1 medium (182g)" },
-  { id: "2", name: "Chicken Breast", calories: 165, protein: 31, carbs: 0, fat: 3.6, servingSize: "100g" },
-  { id: "3", name: "Brown Rice", calories: 216, protein: 5, carbs: 45, fat: 1.8, servingSize: "1 cup cooked (195g)" },
-  { id: "4", name: "Salmon", calories: 206, protein: 22, carbs: 0, fat: 13, servingSize: "100g" },
-  { id: "5", name: "Broccoli", calories: 55, protein: 3.7, carbs: 11.2, fat: 0.6, servingSize: "1 cup (91g)" },
-  { id: "6", name: "Egg", calories: 78, protein: 6.3, carbs: 0.6, fat: 5.3, servingSize: "1 large (50g)" },
-  { id: "7", name: "Greek Yogurt", calories: 100, protein: 17, carbs: 6, fat: 0.4, servingSize: "170g" },
-  { id: "8", name: "Banana", calories: 105, protein: 1.3, carbs: 27, fat: 0.4, servingSize: "1 medium (118g)" },
-  { id: "9", name: "Almonds", calories: 164, protein: 6, carbs: 6, fat: 14, servingSize: "28g" },
-  { id: "10", name: "Avocado", calories: 234, protein: 2.9, carbs: 12.5, fat: 21, servingSize: "1 medium (150g)" },
-];
-
 interface AddFoodModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddFood: (food: Food) => void;
+  onAddFood: (food: NewFood) => Promise<void> | void;
   mealType: string;
+  recentFoods?: FoodOption[];
 }
 
-export const AddFoodModal = ({ isOpen, onClose, onAddFood, mealType }: AddFoodModalProps) => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFood, setSelectedFood] = useState<Food | null>(null);
-  const [servingCount, setServingCount] = useState(1);
+const emptyQuickAdd = { name: "", calories: "", protein: "", carbs: "", fat: "", serving: "" };
 
-  const filteredFoods = searchQuery
-    ? foodDatabase.filter(food => 
-        food.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : foodDatabase;
+export const AddFoodModal = ({ isOpen, onClose, onAddFood, mealType, recentFoods = [] }: AddFoodModalProps) => {
+  const [tab, setTab] = useState("search");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<FoodOption[]>([]);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<FoodOption | null>(null);
+  const [amount, setAmount] = useState("");
+  const [quick, setQuick] = useState(emptyQuickAdd);
+  const [isSaving, setIsSaving] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const handleAddFood = () => {
-    if (selectedFood) {
-      const foodWithAdjustedServings = {
-        ...selectedFood,
-        calories: Math.round(selectedFood.calories * servingCount),
-        protein: parseFloat((selectedFood.protein * servingCount).toFixed(1)),
-        carbs: parseFloat((selectedFood.carbs * servingCount).toFixed(1)),
-        fat: parseFloat((selectedFood.fat * servingCount).toFixed(1)),
-        id: `${selectedFood.id}-${Date.now()}` // Ensure unique ID
-      };
-      
-      onAddFood(foodWithAdjustedServings);
-      setSelectedFood(null);
-      setServingCount(1);
-      setSearchQuery("");
-      onClose();
+  // Reset everything each time the dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      setTab("search");
+      setQuery("");
+      setResults([]);
+      setHasSearched(false);
+      setSearchError(null);
+      setSelected(null);
+      setAmount("");
+      setQuick(emptyQuickAdd);
+    }
+    return () => abortRef.current?.abort();
+  }, [isOpen]);
+
+  const runSearch = async () => {
+    if (query.trim().length < 2) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setIsSearching(true);
+    setSearchError(null);
+    setSelected(null);
+    try {
+      const found = await searchFoods(query, controller.signal);
+      setResults(found);
+      setHasSearched(true);
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+      setSearchError((err as Error).message);
+      setResults([]);
+    } finally {
+      if (abortRef.current === controller) setIsSearching(false);
     }
   };
 
+  const choose = (option: FoodOption) => {
+    setSelected(option);
+    setAmount(String(option.defaultAmount));
+  };
+
+  const amountNumber = parseFloat(amount);
+  const amountValid = Number.isFinite(amountNumber) && amountNumber > 0;
+  const preview = selected && amountValid ? scaleFood(selected, amountNumber) : null;
+
+  const quickCalories = parseFloat(quick.calories);
+  const quickValid = quick.name.trim().length > 0 && Number.isFinite(quickCalories) && quickCalories >= 0;
+
+  const save = async (food: NewFood) => {
+    setIsSaving(true);
+    try {
+      await onAddFood(food);
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddSelected = () => {
+    if (!selected || !preview) return;
+    save({ id: `${selected.key}-${Date.now()}`, name: selected.name, ...preview });
+  };
+
+  const handleQuickAdd = () => {
+    if (!quickValid) return;
+    const num = (v: string) => {
+      const n = parseFloat(v);
+      return Number.isFinite(n) && n >= 0 ? Math.round(n * 10) / 10 : 0;
+    };
+    save({
+      id: `custom-${Date.now()}`,
+      name: quick.name.trim(),
+      calories: Math.round(quickCalories),
+      protein: num(quick.protein),
+      carbs: num(quick.carbs),
+      fat: num(quick.fat),
+      servingSize: quick.serving.trim() || "1 serving",
+    });
+  };
+
+  const listToShow = hasSearched || searchError ? results : recentFoods;
+  const showingRecents = !hasSearched && !searchError && recentFoods.length > 0;
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Food to {mealType}</DialogTitle>
-          <DialogDescription>
-            Search for a food item or create a custom entry.
-          </DialogDescription>
+          <DialogTitle>Add food to {mealType}</DialogTitle>
+          <DialogDescription>Search the food database, or quick-add your own food.</DialogDescription>
         </DialogHeader>
-        
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Search foods..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        
-        <div className="h-[250px] overflow-y-auto border rounded-md">
-          {filteredFoods.length > 0 ? (
-            <div className="divide-y divide-border">
-              {filteredFoods.map((food) => (
-                <div
-                  key={food.id}
-                  className={`p-3 cursor-pointer hover:bg-muted transition-colors ${
-                    selectedFood?.id === food.id ? "bg-muted" : ""
-                  }`}
-                  onClick={() => setSelectedFood(food)}
-                >
-                  <div className="font-medium">{food.name}</div>
-                  <div className="text-sm text-muted-foreground flex justify-between">
-                    <span>{food.servingSize}</span>
-                    <span>{food.calories} kcal</span>
+
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="search">Search</TabsTrigger>
+            <TabsTrigger value="quick">Quick add</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="search" className="space-y-3">
+            <form
+              className="flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                runSearch();
+              }}
+            >
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="e.g. rice, plantain, egg"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  aria-label="Search foods"
+                  autoFocus
+                />
+              </div>
+              <Button type="submit" variant="secondary" disabled={isSearching || query.trim().length < 2}>
+                {isSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
+              </Button>
+            </form>
+
+            {showingRecents && <p className="text-xs font-medium text-muted-foreground">Recent foods</p>}
+
+            <div className="h-[220px] overflow-y-auto border rounded-md">
+              {searchError ? (
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  {searchError}
+                  <Button variant="link" className="block mx-auto" onClick={() => setTab("quick")}>
+                    Use Quick add instead
+                  </Button>
+                </div>
+              ) : listToShow.length > 0 ? (
+                <div className="divide-y divide-border">
+                  {listToShow.map((food) => (
+                    <button
+                      type="button"
+                      key={food.key}
+                      className={`w-full text-left p-3 hover:bg-muted transition-colors ${
+                        selected?.key === food.key ? "bg-muted" : ""
+                      }`}
+                      onClick={() => choose(food)}
+                    >
+                      <div className="font-medium">{food.name}</div>
+                      <div className="text-sm text-muted-foreground flex justify-between gap-2">
+                        <span className="truncate">
+                          {food.unit === "g" ? `per ${food.baseAmount} g` : food.servingLabel || "1 serving"}
+                          {food.detail ? ` · ${food.detail}` : ""}
+                        </span>
+                        <span className="shrink-0">{Math.round(food.calories)} kcal</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  {hasSearched ? (
+                    <>
+                      No foods found for "{query}".
+                      <Button variant="link" className="block mx-auto" onClick={() => {
+                        setQuick({ ...emptyQuickAdd, name: query });
+                        setTab("quick");
+                      }}>
+                        Quick add "{query}"
+                      </Button>
+                    </>
+                  ) : (
+                    "Type a food and press Search."
+                  )}
+                </div>
+              )}
+            </div>
+
+            {selected && (
+              <div className="border rounded-md p-4 bg-muted/50 space-y-3">
+                <div className="font-medium">{selected.name}</div>
+                <div className="flex items-center gap-3">
+                  <Label htmlFor="amount">{selected.unit === "g" ? "Amount (grams)" : "Servings"}</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    inputMode="decimal"
+                    min={selected.unit === "g" ? 1 : 0.25}
+                    step={selected.unit === "g" ? 1 : 0.25}
+                    className="w-24"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                </div>
+                {preview && (
+                  <div className="grid grid-cols-4 gap-2 text-sm">
+                    <div><span className="font-semibold">{preview.calories}</span> kcal</div>
+                    <div className="text-muted-foreground">P {preview.protein}g</div>
+                    <div className="text-muted-foreground">C {preview.carbs}g</div>
+                    <div className="text-muted-foreground">F {preview.fat}g</div>
                   </div>
+                )}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button onClick={handleAddSelected} disabled={!preview || isSaving}>
+                {isSaving ? "Adding..." : "Add food"}
+              </Button>
+            </DialogFooter>
+          </TabsContent>
+
+          <TabsContent value="quick" className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="qa-name">Food name *</Label>
+              <Input
+                id="qa-name"
+                placeholder="e.g. Jollof rice with chicken"
+                value={quick.name}
+                onChange={(e) => setQuick({ ...quick, name: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="qa-cal">Calories (kcal) *</Label>
+                <Input id="qa-cal" type="number" inputMode="decimal" min={0} value={quick.calories}
+                  onChange={(e) => setQuick({ ...quick, calories: e.target.value })} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="qa-serving">Serving</Label>
+                <Input id="qa-serving" placeholder="e.g. 1 plate" value={quick.serving}
+                  onChange={(e) => setQuick({ ...quick, serving: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {(["protein", "carbs", "fat"] as const).map((k) => (
+                <div className="space-y-1" key={k}>
+                  <Label htmlFor={`qa-${k}`} className="capitalize">{k} (g)</Label>
+                  <Input id={`qa-${k}`} type="number" inputMode="decimal" min={0} value={quick[k]}
+                    onChange={(e) => setQuick({ ...quick, [k]: e.target.value })} />
                 </div>
               ))}
             </div>
-          ) : (
-            <div className="p-6 text-center text-muted-foreground">
-              No foods found. Try a different search term.
-            </div>
-          )}
-        </div>
-        
-        {selectedFood && (
-          <div className="mt-4 border rounded-md p-4 bg-muted/50">
-            <div className="flex justify-between mb-2">
-              <span className="font-medium">{selectedFood.name}</span>
-              <span>{selectedFood.calories} kcal / serving</span>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-3 text-sm text-muted-foreground mb-4">
-              <div>Protein: {selectedFood.protein}g</div>
-              <div>Carbs: {selectedFood.carbs}g</div>
-              <div>Fat: {selectedFood.fat}g</div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <Label htmlFor="servings">Servings:</Label>
-              <Input
-                id="servings"
-                type="number"
-                min="0.25"
-                step="0.25"
-                className="w-20"
-                value={servingCount}
-                onChange={(e) => setServingCount(parseFloat(e.target.value) || 1)}
-              />
-            </div>
-          </div>
-        )}
-        
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleAddFood} disabled={!selectedFood}>
-            Add Food
-          </Button>
-        </DialogFooter>
+            <p className="text-xs text-muted-foreground">Only the name and calories are required.</p>
+            <DialogFooter>
+              <Button variant="outline" onClick={onClose}>Cancel</Button>
+              <Button onClick={handleQuickAdd} disabled={!quickValid || isSaving}>
+                {isSaving ? "Adding..." : "Add food"}
+              </Button>
+            </DialogFooter>
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
