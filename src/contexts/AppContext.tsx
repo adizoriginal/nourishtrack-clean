@@ -155,9 +155,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         !!data && data.age != null && data.height != null && data.weight != null && !!data.gender
       );
 
+      // Name from a Google account, used until the person sets one in their profile
+      const metaName: string =
+        (user.user_metadata?.full_name as string) || (user.user_metadata?.name as string) || '';
+
+      if (!data && metaName) {
+        setProfile(prev => ({ ...prev, name: metaName }));
+      }
+
       if (data) {
         setProfile({
-          name: `${data.first_name || ''} ${data.last_name || ''}`.trim() || 'User',
+          name: `${data.first_name || ''} ${data.last_name || ''}`.trim() || metaName || 'User',
           age: data.age || 30,
           gender: data.gender || 'male',
           height: data.height || 175,

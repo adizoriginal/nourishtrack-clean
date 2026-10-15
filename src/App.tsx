@@ -16,6 +16,8 @@ import FoodDiary from "./pages/FoodDiary";
 import Progress from "./pages/Progress";
 import Profile from "./pages/Profile";
 import Contact from "./pages/Contact";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 import Onboarding, { ONBOARDING_SKIP_KEY } from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 
@@ -114,6 +116,8 @@ const App = () => (
                     }
                   />
                   <Route path="/contact" element={<Contact />} />
+                  <Route path="/privacy" element={<Privacy />} />
+                  <Route path="/terms" element={<Terms />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>

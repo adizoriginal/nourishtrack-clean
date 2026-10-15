@@ -11,11 +11,17 @@ export const Footer = () => {
               © {new Date().getFullYear()} NourishTrack. All rights reserved.
             </p>
           </div>
-          <div className="flex space-x-4">
+          <nav className="flex space-x-4" aria-label="Footer">
+            <Link to="/privacy" className="text-sm text-muted-foreground hover:text-foreground">
+              Privacy
+            </Link>
+            <Link to="/terms" className="text-sm text-muted-foreground hover:text-foreground">
+              Terms
+            </Link>
             <Link to="/contact" className="text-sm text-muted-foreground hover:text-foreground">
               Contact
             </Link>
-          </div>
+          </nav>
         </div>
       </div>
     </footer>
