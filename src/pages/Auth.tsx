@@ -19,14 +19,23 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // The address decides which form shows (/auth = sign in, /auth?mode=signup = sign up),
+  // so the header's "Sign In" and "Get started" buttons always switch the form.
+  const isSignUp = searchParams.get("mode") === "signup";
+  const setIsSignUp = (signUp: boolean) =>
+    setSearchParams(signUp ? { mode: "signup" } : {}, { replace: true });
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [searchParams] = useSearchParams();
 
   const isResetMode = searchParams.get("mode") === "reset";
+
+  // Leave the "forgot password" view when switching between sign in and sign up
+  useEffect(() => {
+    setShowForgotPassword(false);
+  }, [isSignUp]);
 
   useEffect(() => {
     supabase.auth.onAuthStateChange((event, session) => {

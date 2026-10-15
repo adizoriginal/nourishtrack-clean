@@ -62,6 +62,13 @@ export const Header = () => {
     { to: "/profile", label: "Profile", icon: User },
   ] : [];
 
+  // Section links on the landing page for visitors who aren't signed in
+  const sectionLinks = session ? [] : [
+    { hash: "#features", label: "Features" },
+    { hash: "#how-it-works", label: "How it works" },
+    { hash: "#faq", label: "FAQ" },
+  ];
+
   return (
     <header className="sticky top-0 z-50 w-full bg-background border-b border-border">
       <div className="container mx-auto px-4 flex items-center justify-between h-16">
@@ -73,7 +80,16 @@ export const Header = () => {
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex space-x-4">
+        <nav className="hidden md:flex items-center space-x-4">
+          {sectionLinks.map((link) => (
+            <Link
+              key={link.hash}
+              to={{ pathname: "/", hash: link.hash }}
+              className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted rounded-md"
+            >
+              {link.label}
+            </Link>
+          ))}
           {navLinks.map((link) => (
             <Link
               key={link.to}
@@ -95,13 +111,14 @@ export const Header = () => {
               Sign Out
             </Button>
           ) : (
-            <Button 
-              variant="default" 
-              size="sm" 
-              onClick={() => navigate("/auth")}
-            >
-              Sign In
-            </Button>
+            <>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/auth")}>
+                Sign In
+              </Button>
+              <Button variant="default" size="sm" onClick={() => navigate("/auth?mode=signup")}>
+                Get started
+              </Button>
+            </>
           )}
         </nav>
 
@@ -112,6 +129,8 @@ export const Header = () => {
           size="icon"
           className="md:hidden"
           onClick={toggleMobileMenu}
+          aria-label="Open menu"
+          aria-expanded={mobileMenuOpen}
         >
           <MenuIcon className="h-6 w-6" />
         </Button>
@@ -130,11 +149,22 @@ export const Header = () => {
                 variant="ghost" 
                 size="icon" 
                 onClick={() => setMobileMenuOpen(false)}
+                aria-label="Close menu"
               >
                 <X className="h-5 w-5" />
               </Button>
             </div>
             <nav className="flex flex-col p-4">
+              {sectionLinks.map((link) => (
+                <Link
+                  key={link.hash}
+                  to={{ pathname: "/", hash: link.hash }}
+                  className="flex items-center px-4 py-3 hover:bg-muted rounded-md"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
               {navLinks.map((link) => (
                 <Link
                   key={link.to}
@@ -159,17 +189,28 @@ export const Header = () => {
                   Sign Out
                 </Button>
               ) : (
-                <Button 
-                  variant="ghost" 
-                  className="flex items-center justify-start px-4 py-3"
-                  onClick={() => {
-                    navigate("/auth");
-                    setMobileMenuOpen(false);
-                  }}
-                >
-                  <User className="h-5 w-5 mr-3" />
-                  Sign In
-                </Button>
+                <>
+                  <Button 
+                    variant="ghost" 
+                    className="flex items-center justify-start px-4 py-3"
+                    onClick={() => {
+                      navigate("/auth");
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <User className="h-5 w-5 mr-3" />
+                    Sign In
+                  </Button>
+                  <Button
+                    className="mt-3"
+                    onClick={() => {
+                      navigate("/auth?mode=signup");
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    Get started
+                  </Button>
+                </>
               )}
             </nav>
           </div>
