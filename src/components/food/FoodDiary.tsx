@@ -88,6 +88,7 @@ export const FoodDiary = () => {
             protein: food.protein,
             carbs: food.carbs,
             fat: food.fat,
+            source: "recent",
           });
           if (recents.length >= 10) return recents;
         }
@@ -102,6 +103,14 @@ export const FoodDiary = () => {
 
   const handleAddFood = async (food: NewFood) => {
     if (addingTo) await addFood(addingTo, food, currentDate);
+  };
+
+  const handleAddFoods = async (foods: NewFood[]) => {
+    if (!addingTo) return false;
+    return addFoods(
+      foods.map((food) => ({ mealType: addingTo, food })),
+      currentDate
+    );
   };
 
   const today = new Date();
@@ -198,6 +207,7 @@ export const FoodDiary = () => {
         isOpen={addingTo !== null}
         onClose={() => setAddingTo(null)}
         onAddFood={handleAddFood}
+        onAddFoods={handleAddFoods}
         mealType={MEALS.find((m) => m.type === addingTo)?.title.toLowerCase() ?? ""}
         recentFoods={recentFoods}
       />

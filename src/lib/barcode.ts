@@ -67,5 +67,9 @@ export async function lookupBarcode(rawCode: string): Promise<FoodOption> {
     protein: n.proteins_100g ?? 0,
     carbs: n.carbohydrates_100g ?? 0,
     fat: n.fat_100g ?? 0,
+    portions: hasServing
+      ? [{ label: p.serving_size ? `1 serving (${p.serving_size})` : "1 serving", grams: Math.round(servingGrams * 10) / 10 }]
+      : undefined,
+    source: "barcode",
   };
 }

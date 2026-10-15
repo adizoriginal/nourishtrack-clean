@@ -33,7 +33,7 @@ serve(async (req) => {
     const userId = authData.user.id;
 
     // Remove their data first (some tables don't delete automatically with the account)
-    for (const table of ["food_entries", "weight_entries", "water_entries", "meal_plans"]) {
+    for (const table of ["food_entries", "weight_entries", "water_entries", "meal_plans", "custom_foods"]) {
       const { error } = await admin.from(table).delete().eq("user_id", userId);
       // A table that doesn't exist yet is fine to skip
       if (error && error.code !== "42P01" && error.code !== "PGRST205") {
