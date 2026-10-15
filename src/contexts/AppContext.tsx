@@ -56,10 +56,12 @@ interface AppContextType {
   weightHistory: WeightRecord[];
   profile: UserProfile;
   isLoading: boolean;
+  /** null while loading, false when the user still needs to finish setup */
+  profileComplete: boolean | null;
   addFood: (mealType: string, food: Food, date?: string) => Promise<boolean>;
   removeFood: (mealType: string, foodId: string, date?: string) => Promise<void>;
   addWeightRecord: (weight: number) => Promise<void>;
-  updateProfile: (profile: Partial<UserProfile>) => Promise<void>;
+  updateProfile: (profile: Partial<UserProfile>, options?: { silent?: boolean }) => Promise<void>;
   setCurrentDate: (date: string) => void;
   getMealsForDate: (date: string) => {
     breakfast: Food[];
@@ -104,6 +106,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [weightHistory, setWeightHistory] = useState<WeightRecord[]>([]);
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
   const [isLoading, setIsLoading] = useState(false);
+  const [profileComplete, setProfileComplete] = useState<boolean | null>(null);
 
   const meals = allMeals[currentDate] || {
     breakfast: [],
@@ -140,8 +143,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error loading profile:', error);
+        // Don't send people to setup just because loading failed
+        setProfileComplete(true);
         return;
       }
+
+      setProfileComplete(
+        !!data && data.age != null && data.height != null && data.weight != null && !!data.gender
+      );
 
       if (data) {
         setProfile({
@@ -161,6 +170,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error('Error loading profile:', error);
+      setProfileComplete(true);
     }
   };
 
@@ -425,7 +435,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateProfile = async (newProfileData: Partial<UserProfile>) => {
+  const updateProfile = async (newProfileData: Partial<UserProfile>, options?: { silent?: boolean }) => {
     if (!user) return;
     
     const updatedProfile = { ...profile, ...newProfileData };
@@ -454,11 +464,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       if (error) throw error;
 
       setProfile(updatedProfile);
-      
-      toast({
-        title: "Profile updated successfully!",
-        description: "Your profile settings have been saved.",
-      });
+      setProfileComplete(true);
+
+      if (!options?.silent) {
+        toast({
+          title: "Profile updated successfully!",
+          description: "Your profile settings have been saved.",
+        });
+      }
     } catch (error: any) {
       console.error('Error updating profile:', error);
       toast({
@@ -503,6 +516,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setAllMeals({});
       setProfile(defaultProfile);
       setWeightHistory([]);
+      setProfileComplete(null);
     }
   }, [user]);
 
@@ -515,6 +529,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         weightHistory,
         profile,
         isLoading,
+        profileComplete,
         addFood,
         removeFood,
         addWeightRecord,

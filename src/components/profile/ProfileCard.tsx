@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAppContext } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
+import { Calculator } from "lucide-react";
 
 export const ProfileCard = () => {
   const { profile, updateProfile, isLoading } = useAppContext();
@@ -183,6 +185,12 @@ export const ProfileCard = () => {
           </TabsContent>
           
           <TabsContent value="goals" className="space-y-4 mt-4">
+            <Button asChild variant="outline" className="w-full">
+              <Link to="/onboarding">
+                <Calculator className="h-4 w-4 mr-2" />
+                Recalculate my targets
+              </Link>
+            </Button>
             <div className="space-y-2">
               <Label htmlFor="goal">Weight Goal</Label>
               <Select 

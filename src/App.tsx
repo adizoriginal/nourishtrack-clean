@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AppProvider } from "./contexts/AppContext";
+import { AppProvider, useAppContext } from "./contexts/AppContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Header } from "./components/layout/Header";
 import { Footer } from "./components/layout/Footer";
@@ -16,15 +16,27 @@ import FoodDiary from "./pages/FoodDiary";
 import Progress from "./pages/Progress";
 import Profile from "./pages/Profile";
 import Contact from "./pages/Contact";
+import Onboarding, { ONBOARDING_SKIP_KEY } from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// ✅ ProtectedRoute with spinner
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { session, loading } = useAuth();
+const skippedSetupThisSession = () => {
+  try {
+    return sessionStorage.getItem(ONBOARDING_SKIP_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
 
-  if (loading) {
+// ✅ ProtectedRoute with spinner.
+// With requireSetup, users who haven't finished setting up their profile are sent to /onboarding first.
+const ProtectedRoute = ({ children, requireSetup = false }: { children: React.ReactNode; requireSetup?: boolean }) => {
+  const { session, loading } = useAuth();
+  const { profileComplete } = useAppContext();
+  const waitingForProfile = requireSetup && !!session && profileComplete === null;
+
+  if (loading || waitingForProfile) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -34,6 +46,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!session) {
     return <Navigate to="/auth" replace />;
+  }
+
+  if (requireSetup && profileComplete === false && !skippedSetupThisSession()) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;
@@ -59,7 +75,7 @@ const App = () => (
                   <Route
                     path="/dashboard"
                     element={
-                      <ProtectedRoute>
+                      <ProtectedRoute requireSetup>
                         <Dashboard />
                       </ProtectedRoute>
                     }
@@ -67,7 +83,7 @@ const App = () => (
                   <Route
                     path="/food-diary"
                     element={
-                      <ProtectedRoute>
+                      <ProtectedRoute requireSetup>
                         <FoodDiary />
                       </ProtectedRoute>
                     }
@@ -75,7 +91,7 @@ const App = () => (
                   <Route
                     path="/progress"
                     element={
-                      <ProtectedRoute>
+                      <ProtectedRoute requireSetup>
                         <Progress />
                       </ProtectedRoute>
                     }
@@ -89,6 +105,14 @@ const App = () => (
                     }
                   />
 
+                  <Route
+                    path="/onboarding"
+                    element={
+                      <ProtectedRoute>
+                        <Onboarding />
+                      </ProtectedRoute>
+                    }
+                  />
                   <Route path="/contact" element={<Contact />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
