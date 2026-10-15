@@ -70,12 +70,7 @@ export function calculateTargets(input: TargetInput): Targets {
   }
 
   const calorieGoal = round(calories, 10);
-
-  const proteinPerKg = weightGoal === "maintain" ? 1.6 : 1.8;
-  // Cap protein at 35% of calories so heavier users don't get extreme targets.
-  const proteinGoal = round(Math.min(weightKg * proteinPerKg, (calorieGoal * 0.35) / 4));
-  const fatGoal = round((calorieGoal * 0.27) / 9);
-  const carbsGoal = round(Math.max(0, (calorieGoal - proteinGoal * 4 - fatGoal * 9) / 4));
+  const { proteinGoal, carbsGoal, fatGoal } = macroTargets(calorieGoal, weightKg, weightGoal);
 
   return {
     bmr: round(bmr),
@@ -87,6 +82,19 @@ export function calculateTargets(input: TargetInput): Targets {
     adjusted,
   };
 }
+
+/** Protein by body weight, ~27% of calories from fat, carbs fill the rest */
+export function macroTargets(calorieGoal: number, weightKg: number, weightGoal: WeightGoal) {
+  const proteinPerKg = weightGoal === "maintain" ? 1.6 : 1.8;
+  // Cap protein at 35% of calories so heavier users don't get extreme targets.
+  const proteinGoal = round(Math.min(weightKg * proteinPerKg, (calorieGoal * 0.35) / 4));
+  const fatGoal = round((calorieGoal * 0.27) / 9);
+  const carbsGoal = round(Math.max(0, (calorieGoal - proteinGoal * 4 - fatGoal * 9) / 4));
+  return { proteinGoal, carbsGoal, fatGoal };
+}
+
+/** The lowest daily target we'll suggest when losing weight */
+export const minimumCalories = (sex: string) => (sex === "male" ? 1500 : 1200);
 
 export const LIMITS = {
   age: { min: 13, max: 100 },

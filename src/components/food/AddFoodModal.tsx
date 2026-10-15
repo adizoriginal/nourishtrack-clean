@@ -22,6 +22,7 @@ import { BarcodeScanner } from "./BarcodeScanner";
 import { AmountPicker } from "./AmountPicker";
 import { DescribeMeal } from "./DescribeMeal";
 import { MyFoods } from "./MyFoods";
+import type { Nutrients } from "@/lib/nutrients";
 
 export interface NewFood {
   id: string;
@@ -31,6 +32,7 @@ export interface NewFood {
   carbs: number;
   fat: number;
   servingSize: string;
+  nutrients?: Nutrients;
 }
 
 interface AddFoodModalProps {

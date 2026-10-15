@@ -9,6 +9,8 @@ import { Meter } from "@/components/dashboard/Meter";
 import { StreakBadge } from "@/components/dashboard/StreakBadge";
 import { WeeklySummary } from "@/components/dashboard/WeeklySummary";
 import { InstallCard } from "@/components/app/InstallCard";
+import { AdaptiveTargetCard } from "@/components/nutrition/AdaptiveTargetCard";
+import { NutrientsCard } from "@/components/nutrition/NutrientsCard";
 import { WaterCard } from "@/components/water/WaterCard";
 import { toLocalDateString } from "@/lib/dates";
 import { displayWeight, weightUnitLabel } from "@/lib/units";
@@ -99,6 +101,8 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
+      <AdaptiveTargetCard variant="dashboard" />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Macros */}
         <Card className="nourish-card lg:col-span-2">
@@ -181,6 +185,8 @@ const Dashboard = () => {
       </div>
 
       <WeeklySummary />
+
+      <NutrientsCard date={todayString} collapsible />
 
       <InstallCard />
 

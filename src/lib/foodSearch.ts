@@ -1,6 +1,7 @@
 // Food search backed by USDA FoodData Central (free, works from the browser).
 // Get a free key at https://fdc.nal.usda.gov/api-key-signup and set VITE_USDA_API_KEY.
 // Without a key the shared DEMO_KEY is used, which is heavily rate limited.
+import { Nutrients, scaleNutrients, usdaNutrients } from "./nutrients";
 
 export interface Portion {
   /** e.g. "1 cup", "1 medium", "1 slice" */
@@ -23,6 +24,8 @@ export interface FoodOption {
   fat: number;
   /** Household measures for gram-based foods (first one is the usual portion) */
   portions?: Portion[];
+  /** Vitamins, minerals etc. for the same amount as calories (per baseAmount) */
+  nutrients?: Nutrients;
   source?: "usda" | "common" | "mine" | "recent" | "barcode";
 }
 
@@ -142,6 +145,7 @@ export async function searchFoods(query: string, signal?: AbortSignal): Promise<
       carbs: nutrient(food, "205") ?? 0,
       fat: nutrient(food, "204") ?? 0,
       portions,
+      nutrients: usdaNutrients(food.foodNutrients),
       source: "usda",
     });
   }
@@ -167,6 +171,7 @@ export function scaleFood(option: FoodOption, amount: number) {
     carbs: round1(option.carbs),
     fat: round1(option.fat),
     servingSize,
+    nutrients: scaleNutrients(option.nutrients, factor),
   };
 }
 

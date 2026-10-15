@@ -130,6 +130,7 @@ export type Database = {
           food_id: string
           id: string
           meal_type: string
+          nutrients: Json | null
           name: string
           protein: number
           serving_size: string
@@ -144,6 +145,7 @@ export type Database = {
           food_id: string
           id?: string
           meal_type: string
+          nutrients?: Json | null
           name: string
           protein: number
           serving_size: string
@@ -158,6 +160,7 @@ export type Database = {
           food_id?: string
           id?: string
           meal_type?: string
+          nutrients?: Json | null
           name?: string
           protein?: number
           serving_size?: string

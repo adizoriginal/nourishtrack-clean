@@ -1,5 +1,6 @@
 // Look up a packaged food by its barcode in Open Food Facts (free, worldwide product database).
 import type { FoodOption } from "./foodSearch";
+import type { Nutrients } from "./nutrients";
 
 interface OffNutriments {
   "energy-kcal_100g"?: number;
@@ -7,6 +8,30 @@ interface OffNutriments {
   proteins_100g?: number;
   carbohydrates_100g?: number;
   fat_100g?: number;
+  [key: string]: number | string | undefined;
+}
+
+// Open Food Facts gives everything in grams per 100 g
+function offNutrients(n: OffNutriments): Nutrients | undefined {
+  const get = (k: string) => {
+    const v = Number(n[k]);
+    return Number.isFinite(v) && v >= 0 ? v : undefined;
+  };
+  const out: Nutrients = {};
+  const set = (key: keyof Nutrients, v: number | undefined, factor = 1) => {
+    if (v !== undefined) out[key] = Math.round(v * factor * 100) / 100;
+  };
+  set("fiber", get("fiber_100g"));
+  set("sugar", get("sugars_100g"));
+  set("satFat", get("saturated-fat_100g"));
+  const sodium = get("sodium_100g") ?? (get("salt_100g") !== undefined ? get("salt_100g")! / 2.5 : undefined);
+  set("sodium", sodium, 1000);
+  set("potassium", get("potassium_100g"), 1000);
+  set("calcium", get("calcium_100g"), 1000);
+  set("iron", get("iron_100g"), 1000);
+  set("vitC", get("vitamin-c_100g"), 1000);
+  set("vitD", get("vitamin-d_100g"), 1_000_000);
+  return Object.keys(out).length ? out : undefined;
 }
 
 interface OffProduct {
@@ -46,7 +71,7 @@ export async function lookupBarcode(rawCode: string): Promise<FoodOption> {
   }
 
   const n = p.nutriments ?? {};
-  const kcal = n["energy-kcal_100g"] ?? (n.energy_100g !== undefined ? n.energy_100g / 4.184 : undefined);
+  const kcal = n["energy-kcal_100g"] ?? (n.energy_100g !== undefined ? Number(n.energy_100g) / 4.184 : undefined);
   if (kcal === undefined) {
     throw new BarcodeLookupError("This product has no calorie information yet. You can add it with Quick add.");
   }
@@ -67,6 +92,7 @@ export async function lookupBarcode(rawCode: string): Promise<FoodOption> {
     protein: n.proteins_100g ?? 0,
     carbs: n.carbohydrates_100g ?? 0,
     fat: n.fat_100g ?? 0,
+    nutrients: offNutrients(n),
     portions: hasServing
       ? [{ label: p.serving_size ? `1 serving (${p.serving_size})` : "1 serving", grams: Math.round(servingGrams * 10) / 10 }]
       : undefined,

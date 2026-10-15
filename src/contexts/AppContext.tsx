@@ -4,6 +4,8 @@ import { useAuth } from "./AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { toLocalDateString } from "@/lib/dates";
 import { UnitSystem, formatWeight, guessUnits, readStoredUnits, storeUnits } from "@/lib/units";
+import { Nutrients, cleanNutrients } from "@/lib/nutrients";
+import type { Json } from "@/integrations/supabase/types";
 
 interface Food {
   id: string;
@@ -14,7 +16,16 @@ interface Food {
   fat: number;
   servingSize: string;
   date?: string;
+  /** Vitamins, minerals etc., when known */
+  nutrients?: Nutrients;
 }
+
+// Until the "nutrients" column is added, food is saved without it
+let nutrientsColumn = true;
+const missingNutrientsColumn = (error: { code?: string; message?: string } | null) =>
+  !!error && (error.code === "PGRST204" || error.code === "42703") && /nutrients/.test(error.message || "");
+const withNutrients = <T extends Record<string, unknown>>(row: T, nutrients?: Nutrients) =>
+  nutrientsColumn ? { ...row, nutrients: (nutrients ?? null) as unknown as Json } : row;
 
 interface WeightRecord {
   date: string;
@@ -251,6 +262,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           fat: entry.fat,
           servingSize: entry.serving_size,
           date: entry.entry_date,
+          nutrients: cleanNutrients((entry as { nutrients?: unknown }).nutrients),
         };
         
         const mealType = entry.meal_type as keyof typeof mealsByDate[typeof date];
@@ -384,22 +396,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const foodWithDate = { ...food, date: targetDate };
     
     try {
-      const { data, error } = await supabase
-        .from('food_entries')
-        .insert({
-          user_id: user.id,
-          food_id: food.id,
-          name: food.name,
-          calories: Math.round(food.calories),
-          protein: food.protein,
-          carbs: food.carbs,
-          fat: food.fat,
-          serving_size: food.servingSize,
-          meal_type: mealType,
-          entry_date: targetDate,
-        })
-        .select()
-        .single();
+      const row = {
+        user_id: user.id,
+        food_id: food.id,
+        name: food.name,
+        calories: Math.round(food.calories),
+        protein: food.protein,
+        carbs: food.carbs,
+        fat: food.fat,
+        serving_size: food.servingSize,
+        meal_type: mealType,
+        entry_date: targetDate,
+      };
+      let { data, error } = await supabase.from('food_entries').insert(withNutrients(row, food.nutrients)).select().single();
+      if (missingNutrientsColumn(error)) {
+        nutrientsColumn = false;
+        ({ data, error } = await supabase.from('food_entries').insert(row).select().single());
+      }
 
       if (error) throw error;
 
@@ -441,23 +454,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const addFoods = async (items: { mealType: string; food: Food }[], date: string): Promise<boolean> => {
     if (!user || items.length === 0) return false;
     try {
-      const { data, error } = await supabase
+      const rows = items.map(({ mealType, food }) => ({
+        user_id: user.id,
+        food_id: food.id,
+        name: food.name,
+        calories: Math.round(food.calories),
+        protein: food.protein,
+        carbs: food.carbs,
+        fat: food.fat,
+        serving_size: food.servingSize,
+        meal_type: mealType,
+        entry_date: date,
+      }));
+      let { data, error } = await supabase
         .from('food_entries')
-        .insert(
-          items.map(({ mealType, food }) => ({
-            user_id: user.id,
-            food_id: food.id,
-            name: food.name,
-            calories: Math.round(food.calories),
-            protein: food.protein,
-            carbs: food.carbs,
-            fat: food.fat,
-            serving_size: food.servingSize,
-            meal_type: mealType,
-            entry_date: date,
-          }))
-        )
+        .insert(rows.map((row, i) => withNutrients(row, items[i].food.nutrients)))
         .select();
+      if (missingNutrientsColumn(error)) {
+        nutrientsColumn = false;
+        ({ data, error } = await supabase.from('food_entries').insert(rows).select());
+      }
       if (error) throw error;
 
       setAllMeals(prev => {
@@ -475,6 +491,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               fat: row.fat,
               servingSize: row.serving_size,
               date,
+              nutrients: cleanNutrients((row as { nutrients?: unknown }).nutrients),
             },
           ];
         });
@@ -495,17 +512,22 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const updateFood = async (mealType: string, food: Food, date: string): Promise<boolean> => {
     if (!user) return false;
     try {
-      const { error } = await supabase
+      const changes = {
+        calories: Math.round(food.calories),
+        protein: food.protein,
+        carbs: food.carbs,
+        fat: food.fat,
+        serving_size: food.servingSize,
+      };
+      let { error } = await supabase
         .from('food_entries')
-        .update({
-          calories: Math.round(food.calories),
-          protein: food.protein,
-          carbs: food.carbs,
-          fat: food.fat,
-          serving_size: food.servingSize,
-        })
+        .update(food.nutrients ? withNutrients(changes, food.nutrients) : changes)
         .eq('id', food.id)
         .eq('user_id', user.id);
+      if (missingNutrientsColumn(error)) {
+        nutrientsColumn = false;
+        ({ error } = await supabase.from('food_entries').update(changes).eq('id', food.id).eq('user_id', user.id));
+      }
       if (error) throw error;
 
       setAllMeals(prev => {

@@ -12,6 +12,7 @@ import { MealCard } from "./MealCard";
 import { AddFoodModal, NewFood } from "./AddFoodModal";
 import { EditFoodDialog, LoggedFood } from "./EditFoodDialog";
 import { WaterCard } from "@/components/water/WaterCard";
+import { NutrientsCard } from "@/components/nutrition/NutrientsCard";
 import { cn } from "@/lib/utils";
 import { useAppContext } from "@/contexts/AppContext";
 import { toLocalDateString } from "@/lib/dates";
@@ -187,6 +188,7 @@ export const FoodDiary = () => {
             }
           />
         ))}
+        <NutrientsCard date={currentDate} />
         <WaterCard date={currentDate} />
       </div>
 

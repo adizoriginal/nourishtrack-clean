@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useAppContext } from "@/contexts/AppContext";
 import { WeightChart } from "@/components/dashboard/WeightChart";
+import { AdaptiveTargetCard } from "@/components/nutrition/AdaptiveTargetCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -128,6 +129,8 @@ const Progress = () => {
             </div>
           </CardContent>
         </Card>
+
+        <AdaptiveTargetCard variant="progress" />
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { FoodOption } from "@/lib/foodSearch";
 import type { Json } from "@/integrations/supabase/types";
+import { Nutrients, addNutrients, cleanNutrients, scaleNutrients } from "@/lib/nutrients";
 
 export interface RecipeIngredient {
   name: string;
@@ -11,6 +12,7 @@ export interface RecipeIngredient {
   protein: number;
   carbs: number;
   fat: number;
+  nutrients?: Nutrients;
 }
 
 export interface CustomFood {
@@ -26,6 +28,17 @@ export interface CustomFood {
   ingredients?: RecipeIngredient[];
   /** How many servings the whole recipe makes */
   servings?: number;
+  /** Per serving, worked out from a recipe's ingredients */
+  nutrients?: Nutrients;
+}
+
+/** A recipe's vitamins and minerals per serving, from its ingredients */
+export function recipeNutrients(ingredients: RecipeIngredient[] | undefined, servings: number | undefined) {
+  if (!ingredients?.length || !servings) return undefined;
+  const withData = ingredients.filter((i) => i.nutrients && Object.keys(i.nutrients).length);
+  if (withData.length === 0) return undefined;
+  const total = withData.reduce<Nutrients>((sum, i) => addNutrients(sum, cleanNutrients(i.nutrients)), {});
+  return scaleNutrients(total, 1 / servings);
 }
 
 export type CustomFoodInput = Omit<CustomFood, "id"> & { id?: string };
@@ -84,6 +97,9 @@ const fromRow = (row: Row): CustomFood => ({
   isRecipe: !!row.is_recipe,
   ingredients: Array.isArray(row.ingredients) ? (row.ingredients as unknown as RecipeIngredient[]) : undefined,
   servings: row.servings ? Number(row.servings) : undefined,
+  nutrients: Array.isArray(row.ingredients)
+    ? recipeNutrients(row.ingredients as unknown as RecipeIngredient[], row.servings ? Number(row.servings) : undefined)
+    : undefined,
 });
 
 const EMPTY: CustomFood[] = [];
@@ -241,6 +257,7 @@ export function customFoodToOption(food: CustomFood): FoodOption {
     protein: food.protein,
     carbs: food.carbs,
     fat: food.fat,
+    nutrients: food.nutrients ?? recipeNutrients(food.ingredients, food.servings),
     source: "mine",
   };
 }

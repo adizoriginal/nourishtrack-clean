@@ -1,4 +1,5 @@
 // Changing the amount of a food that's already logged.
+import { Nutrients as MicroNutrients, scaleNutrients } from "./nutrients";
 // Logged foods store their serving as text, e.g. "150 g", "1 plate" or "1.5 × 1 plate".
 
 export interface PortionInfo {
@@ -32,6 +33,7 @@ interface Nutrients {
   carbs: number;
   fat: number;
   servingSize: string;
+  nutrients?: MicroNutrients;
 }
 
 /** Scale a logged food from its current amount to a new one. */
@@ -45,5 +47,6 @@ export function rescaleFood<T extends Nutrients>(food: T, newAmount: number): T 
     carbs: round1(food.carbs * factor),
     fat: round1(food.fat * factor),
     servingSize: formatPortion(info, newAmount),
+    nutrients: scaleNutrients(food.nutrients, factor),
   };
 }

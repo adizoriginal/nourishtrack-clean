@@ -404,6 +404,7 @@ const RecipeForm = ({ initial, mine, onCancel, onSave }: RecipeFormProps) => {
                     protein: f.protein,
                     carbs: f.carbs,
                     fat: f.fat,
+                    nutrients: f.nutrients,
                   })),
                 ]);
                 setDescribeKey((k) => k + 1);
