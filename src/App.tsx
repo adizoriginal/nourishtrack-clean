@@ -2,24 +2,36 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppProvider, useAppContext } from "./contexts/AppContext";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Header } from "./components/layout/Header";
 import { Footer } from "./components/layout/Footer";
 
-import AuthCallback from "./pages/AuthCallback";
+import { ONBOARDING_SKIP_KEY } from "./lib/onboarding";
+import { lazyPage } from "./lib/lazyPage";
+import { PageMeta } from "./components/PageMeta";
+
+// The landing page loads straight away; every other page is downloaded only when someone visits it.
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import FoodDiary from "./pages/FoodDiary";
-import Progress from "./pages/Progress";
-import Profile from "./pages/Profile";
-import Contact from "./pages/Contact";
-import Privacy from "./pages/Privacy";
-import Terms from "./pages/Terms";
-import Onboarding, { ONBOARDING_SKIP_KEY } from "./pages/Onboarding";
-import NotFound from "./pages/NotFound";
+const AuthCallback = lazyPage(() => import("./pages/AuthCallback"));
+const Auth = lazyPage(() => import("./pages/Auth"));
+const Dashboard = lazyPage(() => import("./pages/Dashboard"));
+const FoodDiary = lazyPage(() => import("./pages/FoodDiary"));
+const Progress = lazyPage(() => import("./pages/Progress"));
+const Profile = lazyPage(() => import("./pages/Profile"));
+const Contact = lazyPage(() => import("./pages/Contact"));
+const Privacy = lazyPage(() => import("./pages/Privacy"));
+const Terms = lazyPage(() => import("./pages/Terms"));
+const Onboarding = lazyPage(() => import("./pages/Onboarding"));
+const NotFound = lazyPage(() => import("./pages/NotFound"));
+
+const PageLoading = () => (
+  <div className="flex items-center justify-center py-24" role="status" aria-label="Loading">
+    <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 
 const queryClient = new QueryClient();
 
@@ -67,7 +79,9 @@ const App = () => (
           <BrowserRouter>
             <div className="flex flex-col min-h-screen">
               <Header />
+              <PageMeta />
               <main className="flex-1">
+                <Suspense fallback={<PageLoading />}>
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
@@ -120,6 +134,7 @@ const App = () => (
                   <Route path="/terms" element={<Terms />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
+                </Suspense>
               </main>
               <Footer />
             </div>

@@ -20,7 +20,7 @@ import {
   calculateTargets,
 } from "@/lib/nutritionTargets";
 
-export const ONBOARDING_SKIP_KEY = "nourishtrack:onboarding-skipped";
+import { ONBOARDING_SKIP_KEY } from "@/lib/onboarding";
 
 const STEPS = ["About you", "Activity", "Goal", "Your plan"];
 

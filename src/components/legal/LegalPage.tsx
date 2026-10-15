@@ -9,12 +9,7 @@ interface LegalPageProps {
 /** Shared layout for the Privacy Policy and Terms pages */
 export const LegalPage = ({ title, updated, children }: LegalPageProps) => {
   useEffect(() => {
-    const previous = document.title;
-    document.title = `${title} – NourishTrack`;
     window.scrollTo(0, 0);
-    return () => {
-      document.title = previous;
-    };
   }, [title]);
 
   return (

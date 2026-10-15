@@ -80,6 +80,7 @@ const PhoneFrame = ({ src, alt, className = "" }: { src: string; alt: string; cl
       alt={alt}
       width={390}
       height={820}
+      decoding="async"
       className="block w-full h-auto rounded-[1.75rem] bg-background"
     />
   </div>
