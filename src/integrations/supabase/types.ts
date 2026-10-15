@@ -9,6 +9,69 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      reminder_settings: {
+        Row: {
+          breakfast_time: string | null
+          dinner_time: string | null
+          enabled: boolean
+          last_sent: Json
+          lunch_time: string | null
+          timezone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          breakfast_time?: string | null
+          dinner_time?: string | null
+          enabled?: boolean
+          last_sent?: Json
+          lunch_time?: string | null
+          timezone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          breakfast_time?: string | null
+          dinner_time?: string | null
+          enabled?: boolean
+          last_sent?: Json
+          lunch_time?: string | null
+          timezone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       custom_foods: {
         Row: {
           calories: number

@@ -3,3 +3,6 @@ project_id = "fgmibebjtylyhzqgczfc"
 
 [functions.send-contact-email]
 verify_jwt = false
+
+[functions.send-reminders]
+verify_jwt = false

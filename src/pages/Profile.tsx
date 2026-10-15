@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { DeleteAccount } from "@/components/profile/DeleteAccount";
+import { Reminders } from "@/components/profile/Reminders";
 
 const Profile = () => {
   const { user } = useAuth();
@@ -29,6 +30,7 @@ const Profile = () => {
       <div className="grid gap-8 lg:grid-cols-[400px,1fr]">
         <div className="space-y-8">
           <ProfileCard />
+          <Reminders />
           <DeleteAccount />
         </div>
         <div className="space-y-8">

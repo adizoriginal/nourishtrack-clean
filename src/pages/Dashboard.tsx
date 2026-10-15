@@ -8,6 +8,7 @@ import { DailySummary } from "@/components/dashboard/DailySummary";
 import { Meter } from "@/components/dashboard/Meter";
 import { StreakBadge } from "@/components/dashboard/StreakBadge";
 import { WeeklySummary } from "@/components/dashboard/WeeklySummary";
+import { InstallCard } from "@/components/app/InstallCard";
 import { WaterCard } from "@/components/water/WaterCard";
 import { toLocalDateString } from "@/lib/dates";
 import { displayWeight, weightUnitLabel } from "@/lib/units";
@@ -180,6 +181,8 @@ const Dashboard = () => {
       </div>
 
       <WeeklySummary />
+
+      <InstallCard />
 
       <DailySummary meals={todaysMeals} date={today} />
     </div>
